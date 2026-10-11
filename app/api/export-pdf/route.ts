@@ -40,17 +40,11 @@ export async function POST(req: NextRequest) {
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
-            #resume-print-sheet {
-              width: 210mm !important;
-              min-height: 297mm !important;
-              box-sizing: border-box !important;
-              padding: 10mm 14mm !important;
-              margin: 0 auto !important;
-              box-shadow: none !important;
-              border: none !important;
-            }
+            #resume-print-sheet,
+            #resume-dedicated-export,
             #cover-letter-print-sheet {
               width: 210mm !important;
+              max-width: 210mm !important;
               height: 296mm !important;
               max-height: 297mm !important;
               box-sizing: border-box !important;
@@ -60,11 +54,12 @@ export async function POST(req: NextRequest) {
               overflow: hidden !important;
               page-break-after: avoid !important;
               page-break-inside: avoid !important;
+              page-break-before: avoid !important;
             }
           </style>
         </head>
         <body class="bg-white">
-          <div style="width: 210mm; margin: 0 auto;">
+          <div style="width: 210mm; max-height: 297mm; height: 296mm; margin: 0 auto; overflow: hidden; page-break-after: avoid;">
             ${html}
           </div>
         </body>
@@ -78,6 +73,7 @@ export async function POST(req: NextRequest) {
       printBackground: true,
       margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
       preferCSSPageSize: true,
+      pageRanges: '1',
     });
 
     await browser.close();

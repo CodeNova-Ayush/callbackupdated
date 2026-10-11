@@ -154,6 +154,18 @@ export default function ImportOldResumePage() {
           if (typeof window !== 'undefined' && data.parsedSections) {
             localStorage.setItem('has_onboarded', 'true');
             localStorage.setItem('active_resume_id', data.resumeId);
+            localStorage.setItem(
+              'callback_ai_saved_resume_' + data.resumeId,
+              JSON.stringify({
+                personalInfo: data.parsedSections.personalInfo || {},
+                experiences: data.parsedSections.experience || [],
+                education: data.parsedSections.education || [],
+                projects: data.parsedSections.projects || [],
+                skills: data.parsedSections.skills || [],
+                selectedTemplate: 'executive_slate',
+                savedAt: new Date().toISOString(),
+              })
+            );
             saveResumeToStore({
               id: data.resumeId,
               title: data.title || `${data.parsedSections.personalInfo?.fullName || 'Candidate'} Resume`,
@@ -168,6 +180,7 @@ export default function ImportOldResumePage() {
               isActive: true,
               parsedSections: data.parsedSections,
             });
+            window.dispatchEvent(new Event('active_resume_changed'));
           }
         } else {
           alert(data.error || 'Failed to analyze resume');

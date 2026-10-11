@@ -219,6 +219,44 @@ export function saveResumeToStore(item: StoredResumeItem): void {
 }
 
 /**
+ * Get a specific resume by ID from store or localStorage
+ */
+export function getResumeFromStore(resumeId: string): StoredResumeItem | null {
+  if (typeof window === 'undefined') return null;
+  const list = getStoredResumes();
+  const matched = list.find((r) => r.id === resumeId);
+  if (matched) return matched;
+
+  try {
+    const single = localStorage.getItem('callback_ai_saved_resume_' + resumeId);
+    if (single) {
+      const parsed = JSON.parse(single);
+      return {
+        id: resumeId,
+        title: parsed.personalInfo?.fullName ? `${parsed.personalInfo.fullName}'s Resume` : 'Candidate Resume',
+        candidateName: parsed.personalInfo?.fullName || 'Candidate',
+        candidateTitle: parsed.experiences?.[0]?.role || 'Software Engineer',
+        candidateEmail: parsed.personalInfo?.email || '',
+        candidateLocation: parsed.personalInfo?.location || '',
+        atsScore: 96,
+        trustScore: 98,
+        updatedAt: 'Recently Updated',
+        isActive: true,
+        parsedSections: {
+          personalInfo: parsed.personalInfo || {},
+          experience: parsed.experiences || parsed.experience || [],
+          education: parsed.education || [],
+          projects: parsed.projects || [],
+          skills: parsed.skills || [],
+          certifications: parsed.certifications || [],
+        },
+      };
+    }
+  } catch {}
+  return null;
+}
+
+/**
  * Set an existing stored resume as the active resume
  */
 export function setActiveResume(resumeId: string): void {

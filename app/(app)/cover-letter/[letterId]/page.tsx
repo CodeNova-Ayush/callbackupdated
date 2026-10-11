@@ -37,6 +37,8 @@ import {
   Loader2,
   Copy,
   ChevronDown,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import { useAppAuth, useAppUser } from '@/components/auth/AuthProvider';
 import { AuthModal } from '@/components/auth/AuthModal';
@@ -124,6 +126,67 @@ export default function CoverLetterEditorPage() {
       window.removeEventListener('resize', updateWidth);
     };
   }, [mobileViewMode]);
+
+  // Voice-to-Text Dictation States & Handler
+  const [listeningIndex, setListeningIndex] = useState<number | null>(null);
+  const [isListeningPrompt, setIsListeningPrompt] = useState<boolean>(false);
+
+  const handleVoiceToText = (target: number | 'prompt') => {
+    if (typeof window === 'undefined') return;
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert('Voice dictation is supported in Chrome, Safari, Edge, and modern browsers.');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      if (target === 'prompt') {
+        setIsListeningPrompt(true);
+      } else {
+        setListeningIndex(target);
+      }
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (target === 'prompt') {
+          setAiRole((prev) => (prev ? `${prev} ${transcript}` : transcript));
+        } else {
+          updateLetter((prev) => {
+            const newBody = [...prev.letterDetails.body];
+            const original = newBody[target] || '';
+            newBody[target] = original ? `${original} ${transcript}` : transcript;
+            return {
+              ...prev,
+              letterDetails: { ...prev.letterDetails, body: newBody },
+            };
+          });
+        }
+      };
+
+      recognition.onerror = () => {
+        if (target === 'prompt') setIsListeningPrompt(false);
+        else setListeningIndex(null);
+      };
+
+      recognition.onend = () => {
+        if (target === 'prompt') setIsListeningPrompt(false);
+        else setListeningIndex(null);
+      };
+
+      recognition.start();
+    } catch {
+      if (target === 'prompt') setIsListeningPrompt(false);
+      else setListeningIndex(null);
+    }
+  };
 
   // Auto-save debouncer
   const updateLetter = (updater: (prev: CoverLetterItem) => CoverLetterItem) => {
@@ -726,7 +789,21 @@ export default function CoverLetterEditorPage() {
                     >
                       <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
                         <span>Paragraph {index + 1}</span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleVoiceToText(index)}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                              listeningIndex === index
+                                ? 'bg-rose-100 text-rose-700 animate-pulse ring-1 ring-rose-400'
+                                : 'text-slate-500 hover:text-indigo-600 hover:bg-white'
+                            }`}
+                            title="Dictate paragraph using Microphone (Voice-to-Text)"
+                          >
+                            <Mic className="w-3 h-3 text-rose-500" />
+                            <span>{listeningIndex === index ? 'Listening...' : 'Voice Dictate'}</span>
+                          </button>
+
                           {index > 0 && (
                             <button
                               type="button"
@@ -1015,9 +1092,24 @@ export default function CoverLetterEditorPage() {
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Target Job Title
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-semibold text-slate-700">
+                      Target Job Title
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleVoiceToText('prompt')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        isListeningPrompt
+                          ? 'bg-rose-100 text-rose-700 animate-pulse ring-1 ring-rose-400'
+                          : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
+                      }`}
+                      title="Dictate Target Job Title using Microphone"
+                    >
+                      <Mic className="w-3 h-3 text-rose-500" />
+                      <span>{isListeningPrompt ? 'Listening...' : 'Voice Dictate'}</span>
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={aiRole}

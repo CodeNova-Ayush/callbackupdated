@@ -29,6 +29,7 @@ const isPublicRoute = createRouteMatcher([
   '/voice-intake(.*)',
   '/dashboard(.*)',
   '/cover-letter(.*)',
+  '/import-resume(.*)',
 ]);
 
 const middlewareHandler = isRealClerkKey
