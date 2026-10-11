@@ -1,0 +1,415 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-brand: #1C152E;
+  --color-primary-hover: #2B1F45;
+  --color-primary-light: #F3F0F7;
+  --color-brand-bg: #F8F9FA;
+  --color-flow-coral: #FF4B5E;
+  --color-flow-coral-hover: #E62A55;
+  --color-flow-coral-light: #FFF0F3;
+  --color-flow-canvas: #ECEEF2;
+}
+
+@layer base {
+  :root {
+    --background: #F8F9FA;
+    --card: #FFFFFF;
+    --card-border: #E5E7EB;
+    --foreground: #1C152E;
+    --muted-foreground: #6B7280;
+    --primary: #1C152E;
+    --primary-hover: #2B1F45;
+    --primary-light: #F3F0F7;
+    --flow-coral: #FF4B5E;
+    --flow-coral-light: #FFF0F3;
+    --flow-canvas: #ECEEF2;
+    --success: #1C152E;
+    --success-bg: #F3F0F7;
+    --warning: #D97706;
+    --warning-bg: #FFFBEB;
+    --danger: #FF4B5E;
+    --danger-bg: #FFF0F3;
+  }
+
+  body {
+    background-color: #F8F9FA;
+    color: var(--foreground);
+    font-family: 'Plus Jakarta Sans', var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* FlowCV Unified Aesthetic Helpers */
+.bg-aurora-mesh {
+  background: radial-gradient(at 0% 0%, rgba(255, 75, 94, 0.05) 0px, transparent 50%),
+              radial-gradient(at 100% 0%, rgba(28, 21, 46, 0.04) 0px, transparent 50%),
+              #F8F9FA;
+}
+
+.text-aurora-gradient {
+  color: #1C152E;
+}
+
+.bg-brand-primary {
+  background-color: #1C152E;
+}
+
+.hover-bg-brand-primary:hover {
+  background-color: #2B1F45;
+}
+
+.border-aurora-glow {
+  border-color: rgba(28, 21, 46, 0.15);
+  box-shadow: 0 0 25px -5px rgba(28, 21, 46, 0.08);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Continuous Infinite Smooth Marquee Animation */
+@keyframes marqueeScroll {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-infinite {
+  display: flex;
+  width: max-content;
+  animation: marqueeScroll 40s linear infinite;
+}
+
+.animate-marquee-infinite:hover {
+  animation-play-state: paused;
+}
+
+/* Cyber Tech Scan & Circuit Line Animations */
+@keyframes scanMove {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.animate-scan {
+  animation: scanMove 2.5s linear infinite;
+}
+
+@keyframes lineGrowLeft {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+}
+
+.animate-cyber-line-1 {
+  transform-origin: left;
+  animation: lineGrowLeft 3s linear infinite;
+}
+
+.animate-cyber-line-2 {
+  transform-origin: right;
+  animation: lineGrowLeft 3s linear infinite 1s;
+}
+
+.animate-cyber-line-3 {
+  transform-origin: left;
+  animation: lineGrowLeft 3s linear infinite 2s;
+}
+
+/* 3D Tactile Pushable Keycap Buttons (Uiverse by cssbuttons-io) */
+.pushable-btn {
+  position: relative;
+  display: inline-block;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  outline-offset: 4px;
+  transition: filter 250ms;
+  user-select: none;
+  touch-action: manipulation;
+  text-decoration: none;
+}
+
+.pushable-btn .pushable-shadow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.08);
+  will-change: transform;
+  transform: translateY(2px);
+  transition: transform 600ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.pushable-btn .pushable-edge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to left,
+    #cbd5e1 0%,
+    #94a3b8 8%,
+    #94a3b8 92%,
+    #cbd5e1 100%
+  );
+}
+
+.pushable-btn .pushable-front {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 7px 16px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+  background: #ffffff;
+  will-change: transform;
+  transform: translateY(-2px);
+  transition: transform 300ms cubic-bezier(0.3, 0.7, 0.4, 1);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.pushable-btn:hover {
+  filter: brightness(103%);
+}
+
+.pushable-btn:hover .pushable-front {
+  color: #1C152E;
+  border-color: #1C152E;
+  transform: translateY(-4px);
+  transition: transform 200ms cubic-bezier(0.3, 0.7, 0.4, 1.2);
+}
+
+.pushable-btn:active .pushable-front {
+  transform: translateY(0px);
+  transition: transform 34ms;
+}
+
+.pushable-btn:hover .pushable-shadow {
+  transform: translateY(3px);
+  transition: transform 200ms cubic-bezier(0.3, 0.7, 0.4, 1.2);
+}
+
+.pushable-btn:active .pushable-shadow {
+  transform: translateY(1px);
+  transition: transform 34ms;
+}
+
+/* Primary Obsidian Pushable Variant (FlowCV) */
+.pushable-btn-teal .pushable-edge {
+  background: linear-gradient(
+    to left,
+    #120D1F 0%,
+    #1C152E 8%,
+    #1C152E 92%,
+    #120D1F 100%
+  );
+}
+
+.pushable-btn-teal .pushable-front {
+  color: #ffffff;
+  background: #1C152E;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.pushable-btn-teal:hover .pushable-front {
+  color: #ffffff;
+  background: #2B1F45;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* ATS Pure A4 Print Stylesheet */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 210mm !important;
+    height: 100% !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide all UI elements, toolbars, sidebars, modals, and buttons */
+  aside,
+  header,
+  nav,
+  footer,
+  button,
+  .no-print,
+  .print\:hidden,
+  [role="navigation"],
+  [role="banner"] {
+    display: none !important;
+  }
+
+  /* Hide everything in the body by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Only make the resume sheet and its children visible */
+  #resume-print-sheet,
+  #resume-print-sheet *,
+  #cover-letter-print-sheet,
+  #cover-letter-print-sheet * {
+    visibility: visible;
+  }
+
+  #resume-print-sheet {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 10mm 14mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    z-index: 99999 !important;
+  }
+
+  /* Dedicated Cover Letter Print Portal */
+  #cover-letter-dedicated-print,
+  #cover-letter-dedicated-print * {
+    visibility: visible !important;
+  }
+
+  #cover-letter-dedicated-print {
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    transform: none !important;
+    overflow: visible !important;
+    z-index: 999999 !important;
+  }
+
+  #cover-letter-dedicated-print #cover-letter-print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 auto !important;
+    transform: none !important;
+    position: static !important;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+}
+
+/* ==========================================================================
+   🌀 Agent Radiating Blade Spinner (Uiverse by PriyanshuGupta28)
+   ========================================================================== */
+.agent-radiating-spinner {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agent-radiating-spinner div {
+  position: absolute;
+  width: 2px;
+  height: 6px;
+  background: #FF4B5E;
+  border-radius: 2px;
+  transform: rotate(calc(var(--rotation) * 1deg)) translate(0, calc(var(--translation) * 1%));
+  animation: spinner-fzua35 1s calc(var(--delay) * 1s) infinite ease;
+}
+
+.agent-radiating-spinner div:nth-child(1) { --delay: 0.1; --rotation: 36; --translation: 150; }
+.agent-radiating-spinner div:nth-child(2) { --delay: 0.2; --rotation: 72; --translation: 150; }
+.agent-radiating-spinner div:nth-child(3) { --delay: 0.3; --rotation: 108; --translation: 150; }
+.agent-radiating-spinner div:nth-child(4) { --delay: 0.4; --rotation: 144; --translation: 150; }
+.agent-radiating-spinner div:nth-child(5) { --delay: 0.5; --rotation: 180; --translation: 150; }
+.agent-radiating-spinner div:nth-child(6) { --delay: 0.6; --rotation: 216; --translation: 150; }
+.agent-radiating-spinner div:nth-child(7) { --delay: 0.7; --rotation: 252; --translation: 150; }
+.agent-radiating-spinner div:nth-child(8) { --delay: 0.8; --rotation: 288; --translation: 150; }
+.agent-radiating-spinner div:nth-child(9) { --delay: 0.9; --rotation: 324; --translation: 150; }
+.agent-radiating-spinner div:nth-child(10) { --delay: 1; --rotation: 360; --translation: 150; }
+
+@keyframes spinner-fzua35 {
+  0%, 10%, 20%, 30%, 50%, 60%, 70%, 80%, 90%, 100% {
+    transform: rotate(calc(var(--rotation) * 1deg)) translate(0, calc(var(--translation) * 1%));
+  }
+  50% {
+    transform: rotate(calc(var(--rotation) * 1deg)) translate(0, calc(var(--translation) * 1.5%));
+  }
+}
+
+/* Continuous Infinite Marquee */
+@keyframes marquee-infinite {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee-infinite {
+  display: flex;
+  width: max-content;
+  animation: marquee-infinite 32s linear infinite;
+}
+
+.animate-marquee-infinite:hover {
+  animation-play-state: paused;
+}
