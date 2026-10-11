@@ -221,13 +221,18 @@ export default function BuilderPage(props: { params: Promise<{ resumeId: string 
   const { isSignedIn } = useAppAuth();
   const { user } = useAppUser();
   const isUserAuthenticated = Boolean(
-    isSignedIn &&
-    user?.primaryEmailAddress?.emailAddress &&
-    typeof window !== 'undefined' &&
-    localStorage.getItem('is_authenticated') === 'true' &&
-    localStorage.getItem('user_email') &&
-    !localStorage.getItem('user_email')?.includes('neuralflow.ai')
+    isSignedIn ||
+    (typeof window !== 'undefined' && localStorage.getItem('is_authenticated') === 'true')
   );
+
+  const checkIsAuthenticated = () => {
+    if (isSignedIn) return true;
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('is_authenticated') === 'true';
+    }
+    return false;
+  };
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalTitle, setAuthModalTitle] = useState<string>('Save Your Resume');
   const [authModalSubtitle, setAuthModalSubtitle] = useState<string>(
@@ -477,11 +482,11 @@ export default function BuilderPage(props: { params: Promise<{ resumeId: string 
     }
   };
 
-  const handleDownloadLocalFile = (format: 'html' | 'txt' | 'json' = 'html') => {
-    if (!isSignedIn) {
+  const handleDownloadLocalFile = (format: 'html' | 'txt' | 'json' = 'html', forceSkipAuth = false) => {
+    if (!forceSkipAuth && !checkIsAuthenticated()) {
       setAuthModalTitle('Save & Download');
       setAuthModalSubtitle('Sign in or create a free account to download.');
-      setPendingAction(() => () => handleDownloadLocalFile(format));
+      setPendingAction(() => () => handleDownloadLocalFile(format, true));
       setIsAuthModalOpen(true);
       return;
     }
@@ -669,11 +674,11 @@ ${skills.join(', ')}
     setIsExportPreviewModalOpen(true);
   };
 
-  const handleExportPDF = async () => {
-    if (!isUserAuthenticated) {
+  const handleExportPDF = async (forceSkipAuth = false) => {
+    if (!forceSkipAuth && !checkIsAuthenticated()) {
       setAuthModalTitle('Save & Download');
       setAuthModalSubtitle('Sign in or create a free account to download.');
-      setPendingAction(() => () => handleExportPDF());
+      setPendingAction(() => () => handleExportPDF(true));
       setIsAuthModalOpen(true);
       return;
     }
@@ -2223,7 +2228,7 @@ ${skills.join(', ')}
               <button
                 type="button"
                 disabled={isExportingPDF}
-                onClick={handleExportPDF}
+                onClick={() => handleExportPDF()}
                 className="h-10 px-5 rounded-full font-bold text-xs bg-[#1c152e] hover:bg-[#2b1f45] active:scale-[0.98] text-white shadow-sm flex items-center gap-2 transition-all cursor-pointer disabled:opacity-60"
               >
                 {isExportingPDF ? (
@@ -2234,36 +2239,30 @@ ${skills.join(', ')}
                 <span>{isExportingPDF ? 'Downloading...' : 'Download PDF File'}</span>
               </button>
 
-              {/* 2. Native Print / Vector PDF Option (FlowCV White Pill) */}
+              {/* 2. Native Print / Vector PDF Option */}
               <button
                 type="button"
                 onClick={() => {
-                  if (!isUserAuthenticated) {
+                  const triggerPrint = () => {
+                    const cleanName = personalInfo.fullName
+                      ? personalInfo.fullName.replace(/[^a-zA-Z0-9_\s-]/g, '').trim().replace(/\s+/g, '_')
+                      : 'Candidate';
+                    const originalTitle = document.title;
+                    document.title = `${cleanName}_Resume_ATS`;
+                    window.print();
+                    setTimeout(() => {
+                      document.title = originalTitle;
+                    }, 1000);
+                  };
+
+                  if (!checkIsAuthenticated()) {
                     setAuthModalTitle('Save & Print Your Resume');
                     setAuthModalSubtitle('Create a free account or sign in to print and export your resume.');
-                    setPendingAction(() => () => {
-                      const cleanName = personalInfo.fullName
-                        ? personalInfo.fullName.replace(/[^a-zA-Z0-9_\s-]/g, '').trim().replace(/\s+/g, '_')
-                        : 'Candidate';
-                      const originalTitle = document.title;
-                      document.title = `${cleanName}_Resume_ATS`;
-                      window.print();
-                      setTimeout(() => {
-                        document.title = originalTitle;
-                      }, 1000);
-                    });
+                    setPendingAction(() => () => triggerPrint());
                     setIsAuthModalOpen(true);
                     return;
                   }
-                  const cleanName = personalInfo.fullName
-                    ? personalInfo.fullName.replace(/[^a-zA-Z0-9_\s-]/g, '').trim().replace(/\s+/g, '_')
-                    : 'Candidate';
-                  const originalTitle = document.title;
-                  document.title = `${cleanName}_Resume_ATS`;
-                  window.print();
-                  setTimeout(() => {
-                    document.title = originalTitle;
-                  }, 1000);
+                  triggerPrint();
                 }}
                 className="h-10 px-4 rounded-full font-semibold text-xs bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-200 hover:border-slate-300 shadow-2xs flex items-center gap-2 transition-all cursor-pointer"
               >
@@ -2271,14 +2270,14 @@ ${skills.join(', ')}
                 <span>Print / Save</span>
               </button>
 
-              {/* 3. JSON Backup (FlowCV White Pill) */}
+              {/* 3. JSON Backup */}
               <button
                 type="button"
                 onClick={() => {
-                  if (!isUserAuthenticated) {
+                  if (!checkIsAuthenticated()) {
                     setAuthModalTitle('Export Resume Data');
                     setAuthModalSubtitle('Create a free account or sign in to export your resume data file.');
-                    setPendingAction(() => () => handleDownloadLocalFile('json'));
+                    setPendingAction(() => () => handleDownloadLocalFile('json', true));
                     setIsAuthModalOpen(true);
                     return;
                   }
@@ -2293,11 +2292,14 @@ ${skills.join(', ')}
             </div>
           </div>
 
-          {/* Full Centered A4 Scaled Preview Container with Exact Bounding Box */}
+          {/* Full Centered A4 Scaled Preview Container with Responsive Bounding Box */}
           {(() => {
+            const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 640;
             const effectiveScale =
               previewModalZoom === 'fit'
-                ? 0.58
+                ? isMobileViewport
+                  ? Math.min(0.42, Math.max(0.28, (window.innerWidth - 72) / 794))
+                  : 0.58
                 : typeof previewModalZoom === 'number'
                 ? previewModalZoom / 100
                 : 0.58;
@@ -2305,7 +2307,7 @@ ${skills.join(', ')}
             const scaledHeight = Math.round(1123 * effectiveScale);
 
             return (
-              <div className="flex-1 overflow-auto bg-[#F4F5F7] rounded-2xl p-4 sm:p-8 flex justify-center items-start border border-slate-200/80 min-h-[460px]">
+              <div className="flex-1 overflow-auto bg-[#F4F5F7] rounded-2xl p-2 sm:p-8 flex justify-center items-start border border-slate-200/80 min-h-[420px]">
                 <div
                   style={{
                     width: `${scaledWidth}px`,
@@ -2334,6 +2336,17 @@ ${skills.join(', ')}
           })()}
         </div>
       </Modal>
+
+      {/* Dedicated Resume Print Portal for Clean Puppeteer Vector Export & Native Print */}
+      <div id="resume-dedicated-print" className="hidden print:block" style={{ width: '210mm', minHeight: '297mm' }}>
+        <div id="resume-print-sheet" className="bg-white" style={{ width: '210mm', minHeight: '297mm' }}>
+          <ResumeTemplateRenderer
+            templateId={selectedTemplate}
+            data={resumeData}
+            zoomLevel={100}
+          />
+        </div>
+      </div>
 
       {/* Sign In / Sign Up Gate Modal on Download or Export */}
       <AuthModal

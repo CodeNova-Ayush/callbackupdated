@@ -117,7 +117,7 @@ export const CoverLetterRenderer: React.FC<CoverLetterRendererProps> = ({
         minHeight: '1123px',
         height: isMicroPreview ? '1123px' : undefined,
         maxWidth: '794px',
-        padding: isFullBleed ? 0 : (isMicroPreview ? '40px 44px' : '52px 64px'),
+        padding: isFullBleed ? 0 : (isMicroPreview ? '36px 40px' : '46px 56px'),
         overflow: 'hidden',
         boxSizing: 'border-box',
       }}

@@ -38,11 +38,26 @@ import {
   Copy,
   ChevronDown,
 } from 'lucide-react';
+import { useAppAuth, useAppUser } from '@/components/auth/AuthProvider';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 export default function CoverLetterEditorPage() {
   const params = useParams();
   const router = useRouter();
   const letterId = typeof params?.letterId === 'string' ? params.letterId : '';
+
+  const { isSignedIn } = useAppAuth();
+  const { user } = useAppUser();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const checkIsAuthenticated = () => {
+    if (isSignedIn) return true;
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('is_authenticated') === 'true';
+    }
+    return false;
+  };
 
   const [letterData, setLetterData] = useState<CoverLetterItem | null>(null);
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ai'>('content');
@@ -194,7 +209,13 @@ export default function CoverLetterEditorPage() {
   };
 
   // High-Fidelity Vector PDF Export + Native Print Fallback
-  const handleExportPDF = async () => {
+  const handleExportPDF = async (forceSkipAuth = false) => {
+    if (!forceSkipAuth && !checkIsAuthenticated()) {
+      setPendingAction(() => () => handleExportPDF(true));
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     setIsExportingPDF(true);
     const printElement = document.getElementById('cover-letter-print-sheet');
     const fileName = `Cover_Letter_${(letterData.sender.fullName || 'Candidate').replace(/\s+/g, '_')}.pdf`;
@@ -302,7 +323,7 @@ export default function CoverLetterEditorPage() {
           <div className="flex items-center gap-2">
             <button
               disabled={isExportingPDF}
-              onClick={handleExportPDF}
+              onClick={() => handleExportPDF()}
               className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 disabled:bg-slate-700 text-white font-semibold text-xs sm:text-sm transition-all shadow-sm active:scale-95 shrink-0 cursor-pointer"
               title="Download PDF or Print"
             >
@@ -1184,6 +1205,25 @@ export default function CoverLetterEditorPage() {
       >
         <CoverLetterRenderer data={letterData} isMicroPreview={false} />
       </div>
+
+      {/* Auth Gate Modal for Cover Letter Download */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setPendingAction(null);
+        }}
+        onSuccess={() => {
+          setIsAuthModalOpen(false);
+          if (pendingAction) {
+            const nextAction = pendingAction;
+            setPendingAction(null);
+            nextAction();
+          }
+        }}
+        title="Save & Download Cover Letter"
+        subtitle="Sign in or create a free account to download your cover letter."
+      />
     </div>
   );
 }

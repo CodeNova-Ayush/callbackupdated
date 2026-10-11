@@ -1,3 +1,4 @@
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import './globals.css';
@@ -23,9 +24,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-[#F5F9FB] text-slate-900 font-sans">
-        <AuthProvider>
+        <ClerkProvider>
+          <AuthProvider>
           {children}
-        </AuthProvider>
+          </AuthProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

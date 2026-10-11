@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { ArrowRight, X } from 'lucide-react';
-import { useAppAuth } from './AuthProvider';
+import { isRealClerkKey, useAppAuth } from './AuthProvider';
+import Link from 'next/link';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -30,22 +31,29 @@ export function AuthModal({
 
   const handleAuthenticate = (userIdentifier: string, name?: string) => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      const finalName = name || (userIdentifier.includes('@') ? userIdentifier.split('@')[0] : userIdentifier).replace(/[._-]/g, ' ') || 'Candidate';
-      const capName = finalName.charAt(0).toUpperCase() + finalName.slice(1);
-      const email = userIdentifier.includes('@') ? userIdentifier : `${userIdentifier}@gmail.com`;
+    const finalName = name || (userIdentifier.includes('@') ? userIdentifier.split('@')[0] : userIdentifier).replace(/[._-]/g, ' ') || 'Candidate';
+    const capName = finalName.charAt(0).toUpperCase() + finalName.slice(1);
+    const email = userIdentifier.includes('@') ? userIdentifier : `${userIdentifier}@gmail.com`;
 
+    if (typeof window !== 'undefined') {
       localStorage.setItem('is_authenticated', 'true');
       localStorage.setItem('user_name', capName);
       localStorage.setItem('user_email', email);
       document.cookie = 'callback_auth=1; path=/; max-age=2592000; SameSite=Lax';
+    }
 
-      if (login) {
+    if (login) {
+      try {
         login(email, capName);
+      } catch (err) {
+        console.warn('Local login dispatch:', err);
       }
+    }
+
+    setTimeout(() => {
       setIsSubmitting(false);
       onSuccess();
-    }, 450);
+    }, 250);
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -55,7 +63,7 @@ export function AuthModal({
   };
 
   const handleSocialClick = (provider: string) => {
-    handleAuthenticate(`${provider.toLowerCase()}.candidate@gmail.com`, `${provider} User`);
+    handleAuthenticate(`${provider.toLowerCase()}.user@gmail.com`, `${provider} Verified User`);
   };
 
   return (
@@ -172,6 +180,17 @@ export function AuthModal({
             {isSignUpMode ? 'Sign in' : 'Sign up'}
           </button>
         </div>
+
+        {isRealClerkKey && (
+          <div className="pt-1 border-t border-slate-100 flex justify-center">
+            <Link
+              href="/sign-in"
+              className="text-[11px] font-bold text-[#1C152E] hover:underline"
+            >
+              Sign in via Clerk Authentication &rarr;
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

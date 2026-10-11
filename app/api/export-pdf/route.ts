@@ -51,11 +51,15 @@ export async function POST(req: NextRequest) {
             }
             #cover-letter-print-sheet {
               width: 210mm !important;
-              min-height: 297mm !important;
+              height: 296mm !important;
+              max-height: 297mm !important;
               box-sizing: border-box !important;
               margin: 0 auto !important;
               box-shadow: none !important;
               border: none !important;
+              overflow: hidden !important;
+              page-break-after: avoid !important;
+              page-break-inside: avoid !important;
             }
           </style>
         </head>
@@ -73,6 +77,7 @@ export async function POST(req: NextRequest) {
       format: 'A4',
       printBackground: true,
       margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
+      preferCSSPageSize: true,
     });
 
     await browser.close();
