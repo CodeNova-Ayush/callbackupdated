@@ -13,6 +13,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const clerkPubKey =
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+    'pk_test_ZmFpci1wZWFjb2NrLTIxLmNsZXJrLmFjY291bnRzLmRldiQ';
+
   return (
     <html lang="en" className="h-full antialiased">
       <head>
@@ -24,7 +28,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-[#F5F9FB] text-slate-900 font-sans">
-        <ClerkProvider>
+        <ClerkProvider publishableKey={clerkPubKey}>
           <AuthProvider>
           {children}
           </AuthProvider>

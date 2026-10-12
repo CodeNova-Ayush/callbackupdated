@@ -35,7 +35,13 @@ function createPrismaClient(): PrismaClient {
     console.error('Failed to setup Vercel db path:', e);
   }
 
+  const fallbackUrl = process.env.DATABASE_URL || 'file:./prisma/dev.db';
   return new PrismaClient({
+    datasources: {
+      db: {
+        url: fallbackUrl,
+      },
+    },
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
 }

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "prisma generate && (prisma db push --accept-data-loss || true) && (npx tsx prisma/seed.ts || true) && next build",
+    "build": "DATABASE_URL=\"${DATABASE_URL:-file:./prisma/dev.db}\" prisma generate && (DATABASE_URL=\"${DATABASE_URL:-file:./prisma/dev.db}\" prisma db push --accept-data-loss || true) && (DATABASE_URL=\"${DATABASE_URL:-file:./prisma/dev.db}\" npx tsx prisma/seed.ts || true) && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
