@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,10 +8,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'HTML content required' }, { status: 400 });
     }
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-    });
+    let browser: any = null;
+    try {
+      const puppeteerModule = await import('puppeteer');
+      const puppeteer = puppeteerModule.default || puppeteerModule;
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      });
+    } catch (launchErr) {
+      console.warn('Puppeteer launch skipped on serverless runtime:', launchErr);
+      return NextResponse.json(
+        { fallback: true, message: 'Serverless runtime requires client-side export' },
+        { status: 200 }
+      );
+    }
 
     const page = await browser.newPage();
     await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });

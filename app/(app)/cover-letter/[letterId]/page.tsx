@@ -319,17 +319,20 @@ export default function CoverLetterEditorPage() {
       });
 
       if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        setIsExportingPDF(false);
-        return;
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/pdf')) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          setIsExportingPDF(false);
+          return;
+        }
       }
     } catch (e) {
       console.warn('Server export failed, falling back to client jsPDF:', e);

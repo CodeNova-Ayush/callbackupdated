@@ -855,20 +855,23 @@ ${skills.join(', ')}
       });
 
       if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/pdf')) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
 
-        setDownloadSuccessMsg(`✓ Successfully downloaded ${fileName} to your device!`);
-        setTimeout(() => setDownloadSuccessMsg(null), 5000);
-        setIsExportingPDF(false);
-        return;
+          setDownloadSuccessMsg(`✓ Successfully downloaded ${fileName} to your device!`);
+          setTimeout(() => setDownloadSuccessMsg(null), 5000);
+          setIsExportingPDF(false);
+          return;
+        }
       }
     } catch (serverErr) {
       console.warn('Server PDF generation failed, falling back to client-side canvas:', serverErr);
