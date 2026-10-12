@@ -830,21 +830,16 @@ ${skills.join(', ')}
       console.warn('Server PDF generation failed, falling back to client-side canvas:', serverErr);
     }
 
-    // 3. Client-Side jsPDF Fallback
+    // 3. Client-Side jsPDF Fallback (100% Reliable Single Page Download)
     try {
-      const originalTransform = printElement.style.transform;
-      printElement.style.transform = 'none';
-
       const canvas = await html2canvas(printElement, {
         scale: 2.2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: printElement.scrollWidth,
-        windowHeight: printElement.scrollHeight,
+        windowWidth: 794,
+        windowHeight: 1123,
       });
-
-      printElement.style.transform = originalTransform;
 
       const imgData = canvas.toDataURL('image/jpeg', 0.98);
       const pdf = new jsPDF({
@@ -854,10 +849,7 @@ ${skills.join(', ')}
         compress: true,
       });
 
-      const pdfWidth = 210;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(pdfHeight, 297));
-      
+      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
       pdf.save(fileName);
 
       setDownloadSuccessMsg(`✓ Successfully downloaded ${fileName} to your device!`);
@@ -879,9 +871,13 @@ ${skills.join(', ')}
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('auto_download') === 'true' && isSignedIn) {
-        handleExportPDF();
+      const isAuth =
+        isSignedIn || localStorage.getItem('is_authenticated') === 'true';
+      if (urlParams.get('auto_download') === 'true' && isAuth) {
         window.history.replaceState({}, '', window.location.pathname);
+        setTimeout(() => {
+          handleExportPDF(true);
+        }, 300);
       }
     }
   }, [isSignedIn]);
@@ -2439,9 +2435,34 @@ ${skills.join(', ')}
         </div>
       </Modal>
 
-      {/* Dedicated Resume Print Portal for Clean Puppeteer Vector Export & Native Print */}
-      <div id="resume-dedicated-export" className="hidden print:block" style={{ width: '210mm', height: '296mm', maxHeight: '297mm', overflow: 'hidden' }}>
-        <div id="resume-export-sheet" className="bg-white" style={{ width: '210mm', height: '296mm', maxHeight: '297mm', overflow: 'hidden' }}>
+      {/* Dedicated Off-Screen 1-Page A4 Sheet for Vector & Canvas Export (Never hidden from DOM layout) */}
+      <div
+        id="resume-dedicated-export"
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          left: '-10000px',
+          top: 0,
+          width: '794px',
+          height: '1123px',
+          maxHeight: '1123px',
+          overflow: 'hidden',
+          zIndex: -9999,
+          pointerEvents: 'none',
+          backgroundColor: '#ffffff',
+        }}
+      >
+        <div
+          id="resume-export-sheet"
+          className="bg-white"
+          style={{
+            width: '794px',
+            height: '1123px',
+            maxHeight: '1123px',
+            overflow: 'hidden',
+            boxSizing: 'border-box',
+          }}
+        >
           <ResumeTemplateRenderer
             templateId={selectedTemplate}
             data={resumeData}

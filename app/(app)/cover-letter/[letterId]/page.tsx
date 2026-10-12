@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import {
   CoverLetterItem,
   getCoverLetterById,
@@ -271,7 +273,7 @@ export default function CoverLetterEditorPage() {
     }
   };
 
-  // High-Fidelity Vector PDF Export + Native Print Fallback
+  // High-Fidelity Vector PDF Export + Direct Client-Side Download Fallback
   const handleExportPDF = async (forceSkipAuth = false) => {
     if (!forceSkipAuth && !checkIsAuthenticated()) {
       setPendingAction(() => () => handleExportPDF(true));
@@ -279,42 +281,93 @@ export default function CoverLetterEditorPage() {
       return;
     }
 
+    if (!letterData) return;
+
     setIsExportingPDF(true);
-    const printElement = document.getElementById('cover-letter-print-sheet');
     const fileName = `Cover_Letter_${(letterData.sender.fullName || 'Candidate').replace(/\s+/g, '_')}.pdf`;
 
-    if (printElement) {
-      try {
-        const res = await fetch('/api/export-pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            html: printElement.outerHTML,
-            title: letterData.title || 'Cover Letter',
-          }),
-        });
+    const printElement =
+      document.getElementById('cover-letter-export-sheet') ||
+      document.getElementById('cover-letter-dedicated-export') ||
+      document.getElementById('cover-letter-dedicated-print');
 
-        if (res.ok) {
-          const blob = await res.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-          setIsExportingPDF(false);
-          return;
-        }
-      } catch (e) {
-        console.warn('Direct PDF export fallback to window.print:', e);
-      }
+    if (!printElement) {
+      window.print();
+      setIsExportingPDF(false);
+      return;
     }
 
-    setIsExportingPDF(false);
-    window.print();
+    // 1. Try High-Fidelity Server-Side PDF Export first
+    try {
+      const res = await fetch('/api/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          html: printElement.outerHTML,
+          title: letterData.title || 'Cover Letter',
+        }),
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        setIsExportingPDF(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('Server export failed, falling back to client jsPDF:', e);
+    }
+
+    // 2. High-Fidelity Client-Side jsPDF + html2canvas Single Page Direct Download
+    try {
+      const canvas = await html2canvas(printElement, {
+        scale: 2.2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 794,
+        windowHeight: 1123,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+      pdf.save(fileName);
+    } catch (err) {
+      console.warn('Canvas export failed, falling back to window.print:', err);
+      window.print();
+    } finally {
+      setIsExportingPDF(false);
+    }
   };
+
+  // Automatically trigger PDF export after returning from sign-in with ?auto_download=true
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isAuth =
+        isSignedIn || localStorage.getItem('is_authenticated') === 'true';
+      if (urlParams.get('auto_download') === 'true' && isAuth) {
+        window.history.replaceState({}, '', window.location.pathname);
+        setTimeout(() => {
+          handleExportPDF(true);
+        }, 300);
+      }
+    }
+  }, [isSignedIn]);
 
   return (
     <div className="min-h-screen bg-[#F4F4F6] text-slate-900 flex flex-col">
@@ -1288,14 +1341,36 @@ export default function CoverLetterEditorPage() {
         </div>
       </div>
 
-      {/* =========================================================================
-          DEDICATED TOP-LEVEL PRINT PORTAL (Guaranteed 100% Vector Print Sheet)
-         ========================================================================= */}
+      {/* Dedicated Off-Screen 1-Page A4 Sheet for Vector & Canvas Export (Never hidden from DOM layout) */}
       <div
-        id="cover-letter-dedicated-print"
-        className="hidden print:block fixed inset-0 z-[999999] bg-white m-0 p-0"
+        id="cover-letter-dedicated-export"
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          left: '-10000px',
+          top: 0,
+          width: '794px',
+          height: '1123px',
+          maxHeight: '1123px',
+          overflow: 'hidden',
+          zIndex: -9999,
+          pointerEvents: 'none',
+          backgroundColor: '#ffffff',
+        }}
       >
-        <CoverLetterRenderer data={letterData} isMicroPreview={false} />
+        <div
+          id="cover-letter-export-sheet"
+          className="bg-white"
+          style={{
+            width: '794px',
+            height: '1123px',
+            maxHeight: '1123px',
+            overflow: 'hidden',
+            boxSizing: 'border-box',
+          }}
+        >
+          {letterData && <CoverLetterRenderer data={letterData} isMicroPreview={false} />}
+        </div>
       </div>
 
       {/* Auth Gate Modal for Cover Letter Download */}

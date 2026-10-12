@@ -101,33 +101,43 @@ export function AuthModal({
               </p>
             </div>
             <div className="w-full flex justify-center">
-              {isSignUpMode ? (
-                <SignUp
-                  routing="hash"
-                  appearance={{
-                    elements: {
-                      cardBox: 'shadow-none border-none p-0 w-full',
-                      headerTitle: 'hidden',
-                      headerSubtitle: 'hidden',
-                      footerActionLink: 'text-[#FF4B5E] hover:text-[#E62A55] font-bold',
-                      formButtonPrimary: 'bg-[#1C152E] hover:bg-[#2B1F45] text-white font-bold rounded-full',
-                    },
-                  }}
-                />
-              ) : (
-                <SignIn
-                  routing="hash"
-                  appearance={{
-                    elements: {
-                      cardBox: 'shadow-none border-none p-0 w-full',
-                      headerTitle: 'hidden',
-                      headerSubtitle: 'hidden',
-                      footerActionLink: 'text-[#FF4B5E] hover:text-[#E62A55] font-bold',
-                      formButtonPrimary: 'bg-[#1C152E] hover:bg-[#2B1F45] text-white font-bold rounded-full',
-                    },
-                  }}
-                />
-              )}
+              {(() => {
+                const currentRedirectUrl = typeof window !== 'undefined'
+                  ? `${window.location.pathname}${window.location.search ? (window.location.search.includes('auto_download') ? window.location.search : `${window.location.search}&auto_download=true`) : '?auto_download=true'}`
+                  : '/dashboard';
+
+                return isSignUpMode ? (
+                  <SignUp
+                    routing="hash"
+                    forceRedirectUrl={currentRedirectUrl}
+                    fallbackRedirectUrl={currentRedirectUrl}
+                    appearance={{
+                      elements: {
+                        cardBox: 'shadow-none border-none p-0 w-full',
+                        headerTitle: 'hidden',
+                        headerSubtitle: 'hidden',
+                        footerActionLink: 'text-[#FF4B5E] hover:text-[#E62A55] font-bold',
+                        formButtonPrimary: 'bg-[#1C152E] hover:bg-[#2B1F45] text-white font-bold rounded-full',
+                      },
+                    }}
+                  />
+                ) : (
+                  <SignIn
+                    routing="hash"
+                    forceRedirectUrl={currentRedirectUrl}
+                    fallbackRedirectUrl={currentRedirectUrl}
+                    appearance={{
+                      elements: {
+                        cardBox: 'shadow-none border-none p-0 w-full',
+                        headerTitle: 'hidden',
+                        headerSubtitle: 'hidden',
+                        footerActionLink: 'text-[#FF4B5E] hover:text-[#E62A55] font-bold',
+                        formButtonPrimary: 'bg-[#1C152E] hover:bg-[#2B1F45] text-white font-bold rounded-full',
+                      },
+                    }}
+                  />
+                );
+              })()}
             </div>
           </div>
         ) : (

@@ -300,15 +300,24 @@
   #resume-print-sheet *,
   #resume-dedicated-print,
   #resume-dedicated-print *,
+  #resume-dedicated-export,
+  #resume-dedicated-export *,
+  #resume-export-sheet,
+  #resume-export-sheet *,
   #cover-letter-print-sheet,
   #cover-letter-print-sheet *,
   #cover-letter-dedicated-print,
-  #cover-letter-dedicated-print * {
+  #cover-letter-dedicated-print *,
+  #cover-letter-dedicated-export,
+  #cover-letter-dedicated-export *,
+  #cover-letter-export-sheet,
+  #cover-letter-export-sheet * {
     visibility: visible !important;
   }
 
   /* Dedicated Resume Print Portal - Strict Single Page Fit */
-  #resume-dedicated-print {
+  #resume-dedicated-print,
+  #resume-dedicated-export {
     display: block !important;
     position: absolute !important;
     top: 0 !important;
@@ -329,7 +338,8 @@
     z-index: 999999 !important;
   }
 
-  #resume-dedicated-print #resume-print-sheet {
+  #resume-dedicated-print #resume-print-sheet,
+  #resume-dedicated-export #resume-export-sheet {
     box-shadow: none !important;
     border: none !important;
     margin: 0 auto !important;
@@ -345,7 +355,8 @@
   }
 
   /* Dedicated Cover Letter Print Portal - Single Page Strict Lock */
-  #cover-letter-dedicated-print {
+  #cover-letter-dedicated-print,
+  #cover-letter-dedicated-export {
     display: block !important;
     position: absolute !important;
     top: 0 !important;
@@ -365,7 +376,8 @@
     z-index: 999999 !important;
   }
 
-  #cover-letter-dedicated-print #cover-letter-print-sheet {
+  #cover-letter-dedicated-print #cover-letter-print-sheet,
+  #cover-letter-dedicated-export #cover-letter-export-sheet {
     box-shadow: none !important;
     border: none !important;
     margin: 0 auto !important;
