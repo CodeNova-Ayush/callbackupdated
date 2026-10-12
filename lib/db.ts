@@ -4,28 +4,29 @@ import path from 'path';
 
 function createPrismaClient(): PrismaClient {
   try {
-    if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-      const tmpDbPath = path.join('/tmp', 'dev.db');
+    const dbUrl = process.env.DATABASE_URL || '';
+    const isRemote =
+      dbUrl.startsWith('postgres') ||
+      dbUrl.startsWith('mysql') ||
+      dbUrl.startsWith('prisma://') ||
+      dbUrl.startsWith('mongodb');
+
+    if (!isRemote && (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)) {
+      const tmpDbPath = '/tmp/dev.db';
       if (!fs.existsSync(tmpDbPath)) {
-        const potentialPaths = [
-          path.join(/*turbopackIgnore: true*/ process.cwd(), 'dev.db'),
-          path.join(/*turbopackIgnore: true*/ process.cwd(), 'prisma', 'dev.db'),
-        ];
-        for (const p of potentialPaths) {
-          if (fs.existsSync(p)) {
-            try {
-              fs.copyFileSync(p, tmpDbPath);
-              break;
-            } catch (err) {
-              console.error('Error copying sqlite db to /tmp:', err);
-            }
+        const prismaDbPath = path.join(/*turbopackIgnore: true*/ process.cwd(), 'prisma', 'dev.db');
+        if (fs.existsSync(prismaDbPath)) {
+          try {
+            fs.copyFileSync(prismaDbPath, tmpDbPath);
+          } catch (err) {
+            console.error('Error copying sqlite db to /tmp:', err);
           }
         }
       }
       return new PrismaClient({
         datasources: {
           db: {
-            url: `file:${tmpDbPath}`,
+            url: fs.existsSync(tmpDbPath) ? `file:${tmpDbPath}` : 'file:./prisma/dev.db',
           },
         },
         log: ['error'],

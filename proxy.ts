@@ -50,19 +50,22 @@ const clerkHandler = isRealClerkConfig
     )
   : null;
 
-const middlewareHandler = async (request: NextRequest, event: any) => {
+export async function proxy(request: NextRequest, event: any) {
   if (clerkHandler) {
     try {
-      return await clerkHandler(request, event);
+      const response = await clerkHandler(request, event);
+      if (response) {
+        return response;
+      }
     } catch (err) {
-      console.error('Clerk middleware handled error, continuing:', err);
+      console.error('Clerk proxy handled error, continuing:', err);
       return NextResponse.next();
     }
   }
   return NextResponse.next();
-};
+}
 
-export default middlewareHandler;
+export default proxy;
 
 export const config = {
   matcher: [
