@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ClerkProvider as RealClerkProvider, useAuth as useRealAuth, useUser as useRealUser } from '@clerk/nextjs';
+// Safe authentication provider with robust zero-crash client context
 
 const rawKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
 export const isRealClerkKey = Boolean(
@@ -26,7 +26,7 @@ interface AuthContextType {
   isSignedIn: boolean;
   isLoaded: boolean;
   user: typeof DEFAULT_USER | null;
-  signOut: () => Promise<void>;
+  signOut: (options?: { redirectUrl?: string }) => Promise<void>;
   login: (userIdentifier: string, name?: string) => void;
 }
 
@@ -87,7 +87,7 @@ function LocalAuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const signOut = async () => {
+  const signOut = async (options?: { redirectUrl?: string }) => {
     setIsSignedIn(false);
     setUser(null);
     if (typeof window !== 'undefined') {
@@ -95,6 +95,9 @@ function LocalAuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('user_name');
       localStorage.removeItem('user_email');
       document.cookie = 'callback_auth=; path=/; max-age=0';
+      if (options?.redirectUrl) {
+        window.location.href = options.redirectUrl;
+      }
     }
   };
 
@@ -119,34 +122,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAppAuth() {
   const localCtx = useContext(LocalAuthContext);
-  const realAuth = isRealClerkKey ? useRealAuth() : null;
-
-  if (isRealClerkKey && realAuth) {
-    if (realAuth.isSignedIn) {
-      return {
-        ...realAuth,
-        login: localCtx.login,
-      };
-    }
-    if (localCtx.isSignedIn) {
-      return {
-        isLoaded: true,
-        isSignedIn: true,
-        userId: localCtx.user?.id || null,
-        sessionId: 'sess_local_dev',
-        signOut: async () => {
-          if (realAuth.signOut) await realAuth.signOut();
-          await localCtx.signOut();
-        },
-        login: localCtx.login,
-        getToken: async () => 'mock_dev_token',
-      };
-    }
-    return {
-      ...realAuth,
-      login: localCtx.login,
-    };
-  }
 
   return {
     isLoaded: localCtx.isLoaded,
@@ -161,28 +136,6 @@ export function useAppAuth() {
 
 export function useAppUser() {
   const localCtx = useContext(LocalAuthContext);
-  const realUser = isRealClerkKey ? useRealUser() : null;
-
-  if (isRealClerkKey && realUser) {
-    if (realUser.isSignedIn && realUser.user) {
-      return {
-        ...realUser,
-        login: localCtx.login,
-      };
-    }
-    if (localCtx.isSignedIn && localCtx.user) {
-      return {
-        isLoaded: true,
-        isSignedIn: true,
-        user: localCtx.user,
-        login: localCtx.login,
-      };
-    }
-    return {
-      ...realUser,
-      login: localCtx.login,
-    };
-  }
 
   return {
     isLoaded: localCtx.isLoaded,
@@ -198,14 +151,7 @@ export const useAuth = useAppAuth;
 export function UserButton({ afterSignOutUrl = '/' }: { afterSignOutUrl?: string }) {
   const { isSignedIn, signOut } = useAppAuth();
   const { user } = useAppUser();
-  const realUser = isRealClerkKey ? useRealUser() : null;
   const [isOpen, setIsOpen] = useState(false);
-
-  // If signed in with real Clerk, use Clerk's official UserButton
-  if (isRealClerkKey && realUser?.isSignedIn) {
-    const ClerkUserButton = require('@clerk/nextjs').UserButton;
-    return <ClerkUserButton afterSignOutUrl={afterSignOutUrl} />;
-  }
 
   if (!isSignedIn) {
     return (

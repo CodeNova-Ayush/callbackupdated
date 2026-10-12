@@ -1,6 +1,5 @@
-import { ClerkProvider } from "@clerk/nextjs";
+import { SafeClerkProvider } from "@/components/auth/SafeClerkProvider";
 import type { Metadata } from 'next';
-import { AuthProvider } from '@/components/auth/AuthProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -26,15 +25,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-[#F5F9FB] text-slate-900 font-sans">
-        <ClerkProvider
-          publishableKey={clerkPubKey}
-          signInFallbackRedirectUrl="/dashboard"
-          signUpFallbackRedirectUrl="/dashboard"
-        >
-          <AuthProvider>
+        <SafeClerkProvider publishableKey={clerkPubKey}>
           {children}
-          </AuthProvider>
-        </ClerkProvider>
+        </SafeClerkProvider>
       </body>
     </html>
   );
