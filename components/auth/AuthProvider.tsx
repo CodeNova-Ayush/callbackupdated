@@ -4,7 +4,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ClerkProvider as RealClerkProvider, useAuth as useRealAuth, useUser as useRealUser } from '@clerk/nextjs';
 
-const rawKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
+const rawKey =
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+  'pk_test_ZmFpci1wZWFjb2NrLTIxLmNsZXJrLmFjY291bnRzLmRldiQ';
 export const isRealClerkKey = Boolean(
   rawKey &&
   rawKey.startsWith('pk_') &&

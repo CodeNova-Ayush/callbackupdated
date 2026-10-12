@@ -65,11 +65,11 @@ export function ResumeSectionEditor({
         return personalInfo.summary || `${personalInfo.fullName || 'Candidate'}. ${personalInfo.location || ''}`;
       case 'experience':
         return experiences
-          .map((e) => `${e.role || 'Role'} at ${e.company || 'Company'}. ${e.bullets.filter(Boolean).join('. ')}`)
+          .map((e) => `${e.role || 'Role'} at ${e.company || 'Company'}. ${e.bullets?.filter(Boolean).join('. ') || ''}`)
           .join('. ');
       case 'projects':
         return projects
-          .map((p) => `${p.title || 'Project'}. Tech stack: ${p.techStack || 'none'}. ${p.bullets.filter(Boolean).join('. ')}`)
+          .map((p) => `${p.title || 'Project'}. Tech stack: ${p.techStack || 'none'}. ${p.bullets?.filter(Boolean).join('. ') || ''}`)
           .join('. ');
       case 'education':
         return education
@@ -402,13 +402,14 @@ export function ResumeSectionEditor({
                   </span>
                 </div>
 
-                {exp.bullets.map((b, bIdx) => (
+                {(exp.bullets || []).map((b, bIdx) => (
                   <div key={bIdx} className="flex gap-1.5 sm:gap-2 items-start">
                     <textarea
                       rows={2}
                       value={b}
                       onChange={(e) => {
                         const updated = [...experiences];
+                        if (!updated[expIdx].bullets) updated[expIdx].bullets = [];
                         updated[expIdx].bullets[bIdx] = e.target.value;
                         setExperiences(updated);
                       }}
@@ -418,6 +419,7 @@ export function ResumeSectionEditor({
                     <VoiceDictationButton
                       onTranscript={(spoken) => {
                         const updated = [...experiences];
+                        if (!updated[expIdx].bullets) updated[expIdx].bullets = [];
                         const prev = updated[expIdx].bullets[bIdx] || '';
                         updated[expIdx].bullets[bIdx] = prev ? `${prev} ${spoken}` : spoken;
                         setExperiences(updated);
@@ -449,8 +451,10 @@ export function ResumeSectionEditor({
                       type="button"
                       onClick={() => {
                         const updated = [...experiences];
-                        updated[expIdx].bullets = updated[expIdx].bullets.filter((_, i) => i !== bIdx);
-                        setExperiences(updated);
+                        if (updated[expIdx].bullets) {
+                          updated[expIdx].bullets = updated[expIdx].bullets.filter((_, i) => i !== bIdx);
+                          setExperiences(updated);
+                        }
                       }}
                       className="p-2 text-slate-400 hover:text-rose-500 rounded-xl cursor-pointer shrink-0"
                       title="Delete bullet point"
@@ -464,6 +468,7 @@ export function ResumeSectionEditor({
                   type="button"
                   onClick={() => {
                     const updated = [...experiences];
+                    if (!updated[expIdx].bullets) updated[expIdx].bullets = [];
                     updated[expIdx].bullets.push('');
                     setExperiences(updated);
                   }}
@@ -591,13 +596,14 @@ export function ResumeSectionEditor({
                   </span>
                 </div>
 
-                {proj.bullets.map((b, bIdx) => (
+                {(proj.bullets || []).map((b, bIdx) => (
                   <div key={bIdx} className="flex gap-1.5 sm:gap-2 items-start">
                     <textarea
                       rows={2}
                       value={b}
                       onChange={(e) => {
                         const updated = [...projects];
+                        if (!updated[projIdx].bullets) updated[projIdx].bullets = [];
                         updated[projIdx].bullets[bIdx] = e.target.value;
                         setProjects(updated);
                       }}
@@ -607,6 +613,7 @@ export function ResumeSectionEditor({
                     <VoiceDictationButton
                       onTranscript={(spoken) => {
                         const updated = [...projects];
+                        if (!updated[projIdx].bullets) updated[projIdx].bullets = [];
                         const prev = updated[projIdx].bullets[bIdx] || '';
                         updated[projIdx].bullets[bIdx] = prev ? `${prev} ${spoken}` : spoken;
                         setProjects(updated);
@@ -638,8 +645,10 @@ export function ResumeSectionEditor({
                       type="button"
                       onClick={() => {
                         const updated = [...projects];
-                        updated[projIdx].bullets = updated[projIdx].bullets.filter((_, i) => i !== bIdx);
-                        setProjects(updated);
+                        if (updated[projIdx].bullets) {
+                          updated[projIdx].bullets = updated[projIdx].bullets.filter((_, i) => i !== bIdx);
+                          setProjects(updated);
+                        }
                       }}
                       className="p-2 text-slate-400 hover:text-rose-500 rounded-xl cursor-pointer shrink-0"
                       title="Delete bullet"
@@ -653,6 +662,7 @@ export function ResumeSectionEditor({
                   type="button"
                   onClick={() => {
                     const updated = [...projects];
+                    if (!updated[projIdx].bullets) updated[projIdx].bullets = [];
                     updated[projIdx].bullets.push('');
                     setProjects(updated);
                   }}

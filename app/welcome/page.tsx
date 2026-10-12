@@ -570,6 +570,19 @@ export default function WelcomePage() {
       localStorage.setItem('has_onboarded', 'true');
       localStorage.setItem('active_resume_id', importedId);
       if (data.parsedSections) {
+        localStorage.setItem(
+          'callback_ai_saved_resume_' + importedId,
+          JSON.stringify({
+            personalInfo: data.parsedSections.personalInfo || {},
+            experiences: data.parsedSections.experience || data.parsedSections.experiences || [],
+            education: data.parsedSections.education || [],
+            projects: data.parsedSections.projects || [],
+            skills: data.parsedSections.skills || [],
+            certifications: data.parsedSections.certifications || [],
+            selectedTemplate: 'executive_slate',
+            savedAt: new Date().toISOString(),
+          })
+        );
         saveResumeToStore({
           id: importedId,
           title: data.title || file.name,
@@ -582,7 +595,15 @@ export default function WelcomePage() {
           trustScore: 98,
           updatedAt: 'Just now',
           isActive: true,
-          parsedSections: data.parsedSections,
+          template: 'executive_slate',
+          parsedSections: {
+            personalInfo: data.parsedSections.personalInfo || {},
+            experience: data.parsedSections.experience || data.parsedSections.experiences || [],
+            education: data.parsedSections.education || [],
+            projects: data.parsedSections.projects || [],
+            skills: data.parsedSections.skills || [],
+            certifications: data.parsedSections.certifications || [],
+          },
         });
       }
 

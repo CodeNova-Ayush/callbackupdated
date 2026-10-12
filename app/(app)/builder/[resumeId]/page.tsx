@@ -832,6 +832,10 @@ ${skills.join(', ')}
 
     // 3. Client-Side jsPDF Fallback (100% Reliable Single Page Download)
     try {
+      if (typeof document !== 'undefined' && document.fonts) {
+        await document.fonts.ready;
+      }
+
       const canvas = await html2canvas(printElement, {
         scale: 2.2,
         useCORS: true,
@@ -849,7 +853,16 @@ ${skills.join(', ')}
         compress: true,
       });
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+      const pdfWidth = 210;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      if (pdfHeight > 297) {
+        const scale = 297 / pdfHeight;
+        const scaledWidth = pdfWidth * scale;
+        const xOffset = (pdfWidth - scaledWidth) / 2;
+        pdf.addImage(imgData, 'JPEG', xOffset, 0, scaledWidth, 297, undefined, 'FAST');
+      } else {
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      }
       pdf.save(fileName);
 
       setDownloadSuccessMsg(`✓ Successfully downloaded ${fileName} to your device!`);

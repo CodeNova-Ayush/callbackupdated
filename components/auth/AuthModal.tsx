@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, X } from 'lucide-react';
 import { isRealClerkKey, useAppAuth } from './AuthProvider';
 import { SignIn, SignUp } from '@clerk/nextjs';
@@ -26,10 +26,16 @@ export function AuthModal({
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasTriggeredRef = useRef(false);
 
   // Automatically trigger success callback as soon as Clerk or local session is active
   useEffect(() => {
-    if (isSignedIn && isOpen) {
+    if (!isOpen) {
+      hasTriggeredRef.current = false;
+      return;
+    }
+    if (isSignedIn && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
       onSuccess();
     }
   }, [isSignedIn, isOpen, onSuccess]);
