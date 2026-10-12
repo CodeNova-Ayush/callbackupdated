@@ -13,7 +13,19 @@ const hasClerkKey = isRealClerkKey;
 function SignUpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get('redirect_url') || '/welcome';
+  const rawRedirect = searchParams.get('redirect_url') || searchParams.get('return_to');
+
+  // Smart dynamic return: explicitly passed url -> active resume builder -> dashboard
+  let redirectUrl = rawRedirect || '';
+  if (!redirectUrl && typeof window !== 'undefined') {
+    const activeId = localStorage.getItem('active_resume_id') || localStorage.getItem('callback_active_resume_id');
+    if (activeId) {
+      redirectUrl = `/builder/${activeId}`;
+    } else {
+      redirectUrl = '/dashboard';
+    }
+  }
+  if (!redirectUrl) redirectUrl = '/dashboard';
 
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -63,9 +75,9 @@ function SignUpContent() {
             <SignUp
               routing="path"
               path="/sign-up"
-              signInUrl="/sign-in"
-              forceRedirectUrl="/welcome"
-              fallbackRedirectUrl="/welcome"
+              signInUrl={`/sign-in${redirectUrl ? `?redirect_url=${encodeURIComponent(redirectUrl)}` : ''}`}
+              forceRedirectUrl={redirectUrl}
+              fallbackRedirectUrl={redirectUrl}
               appearance={{
                 elements: {
                   cardBox: 'shadow-xl border border-slate-200/80 rounded-2xl bg-white w-full',

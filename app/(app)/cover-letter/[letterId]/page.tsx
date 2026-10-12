@@ -344,14 +344,24 @@ export default function CoverLetterEditorPage() {
         await document.fonts.ready;
       }
 
+      // Ensure export container is rendered in positive coordinate bounds
+      const dedicatedExport = document.getElementById('cover-letter-dedicated-export');
+      if (dedicatedExport) {
+        dedicatedExport.style.opacity = '1';
+      }
+
       const canvas = await html2canvas(printElement, {
-        scale: 2.2,
+        scale: 2.0,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
         windowWidth: 794,
         windowHeight: 1123,
       });
+
+      if (dedicatedExport) {
+        dedicatedExport.style.opacity = '0';
+      }
 
       const imgData = canvas.toDataURL('image/jpeg', 0.98);
       const pdf = new jsPDF({
@@ -371,7 +381,25 @@ export default function CoverLetterEditorPage() {
       } else {
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       }
-      pdf.save(fileName);
+
+      // Robust mobile and desktop direct file download
+      try {
+        const pdfBlob = pdf.output('blob');
+        const blobUrl = window.URL.createObjectURL(pdfBlob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = blobUrl;
+        downloadLink.download = fileName;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        setTimeout(() => {
+          if (document.body.contains(downloadLink)) {
+            document.body.removeChild(downloadLink);
+          }
+          window.URL.revokeObjectURL(blobUrl);
+        }, 1500);
+      } catch (blobErr) {
+        pdf.save(fileName);
+      }
     } catch (err) {
       console.warn('Canvas export failed, falling back to window.print:', err);
       window.print();
@@ -1373,13 +1401,14 @@ export default function CoverLetterEditorPage() {
         aria-hidden="true"
         style={{
           position: 'fixed',
-          left: '-10000px',
-          top: 0,
+          left: '0px',
+          top: '0px',
           width: '794px',
           height: '1123px',
           maxHeight: '1123px',
           overflow: 'hidden',
           zIndex: -9999,
+          opacity: 0,
           pointerEvents: 'none',
           backgroundColor: '#ffffff',
         }}

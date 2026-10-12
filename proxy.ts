@@ -2,12 +2,8 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const clerkKey =
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
-  'pk_test_ZmFpci1wZWFjb2NrLTIxLmNsZXJrLmFjY291bnRzLmRldiQ';
-const clerkSecret =
-  process.env.CLERK_SECRET_KEY ||
-  'sk_test_l49C9JjgW4CY2KV3OP7Q5IOEpNmMmYJvVXkkyfqTLq';
+const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
+const clerkSecret = process.env.CLERK_SECRET_KEY || '';
 
 const isRealClerkConfig = Boolean(
   clerkKey &&
