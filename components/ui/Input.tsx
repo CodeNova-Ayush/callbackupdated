@@ -24,15 +24,15 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             ref={ref}
             className={clsx(
-              'w-full bg-white border rounded-xl text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1C152E]/15 focus:border-[#1C152E] shadow-2xs',
-              rightAction ? 'pl-3.5 pr-10 py-2.5' : 'px-3.5 py-2.5',
+              'w-full bg-white border rounded-xl text-xs sm:text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1C152E]/15 focus:border-[#1C152E] shadow-2xs',
+              rightAction ? 'pl-3 pr-8 sm:pr-9 py-2 sm:py-2.5' : 'px-3 py-2 sm:py-2.5',
               error ? 'border-rose-400 text-rose-900 focus:border-rose-500 focus:ring-rose-500/15' : 'border-slate-200/90 hover:border-slate-300',
               className
             )}
             {...props}
           />
           {rightAction && (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center shrink-0">
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center shrink-0">
               {rightAction}
             </div>
           )}

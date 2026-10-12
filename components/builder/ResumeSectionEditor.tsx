@@ -193,70 +193,82 @@ export function ResumeSectionEditor({
          ========================================================================= */}
       {activeSection === 'personal_info' && (
         <div className="flex flex-col gap-4">
-          <div className={`grid ${isMobileView ? 'grid-cols-1 sm:grid-cols-2 gap-3' : 'grid-cols-2 gap-4'}`}>
-            <Input
-              placeholder="e.g. Jane Doe"
-              label="Full Name"
-              value={personalInfo.fullName}
-              onChange={(e) => setPersonalInfo({ ...personalInfo, fullName: e.target.value })}
-              rightAction={
-                <VoiceDictationButton
-                  onTranscript={(text) => setPersonalInfo({ ...personalInfo, fullName: text })}
-                  currentValue={personalInfo.fullName}
-                  mode="replace"
-                  size="xs"
-                  title="Speak full name"
-                />
-              }
-            />
-            <Input
-              placeholder="e.g. jane@example.com"
-              label="Email Address"
-              value={personalInfo.email}
-              onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })}
-            />
-            <Input
-              placeholder="e.g. +1 (555) 012-3456"
-              label="Phone Number"
-              value={personalInfo.phone}
-              onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
-              rightAction={
-                <VoiceDictationButton
-                  onTranscript={(text) => setPersonalInfo({ ...personalInfo, phone: text })}
-                  currentValue={personalInfo.phone}
-                  mode="replace"
-                  size="xs"
-                  title="Speak phone number"
-                />
-              }
-            />
-            <Input
-              placeholder="e.g. San Francisco, CA"
-              label="Location"
-              value={personalInfo.location}
-              onChange={(e) => setPersonalInfo({ ...personalInfo, location: e.target.value })}
-              rightAction={
-                <VoiceDictationButton
-                  onTranscript={(text) => setPersonalInfo({ ...personalInfo, location: text })}
-                  currentValue={personalInfo.location}
-                  mode="replace"
-                  size="xs"
-                  title="Speak location"
-                />
-              }
-            />
-            <Input
-              placeholder="linkedin.com/in/username"
-              label="LinkedIn URL"
-              value={personalInfo.linkedin}
-              onChange={(e) => setPersonalInfo({ ...personalInfo, linkedin: e.target.value })}
-            />
-            <Input
-              placeholder="github.com/username"
-              label="GitHub URL"
-              value={personalInfo.github}
-              onChange={(e) => setPersonalInfo({ ...personalInfo, github: e.target.value })}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="col-span-1">
+              <Input
+                placeholder="e.g. Jane Doe"
+                label="Full Name"
+                value={personalInfo.fullName}
+                onChange={(e) => setPersonalInfo({ ...personalInfo, fullName: e.target.value })}
+                rightAction={
+                  <VoiceDictationButton
+                    onTranscript={(text) => setPersonalInfo({ ...personalInfo, fullName: text })}
+                    currentValue={personalInfo.fullName}
+                    mode="replace"
+                    size="xs"
+                    title="Speak full name"
+                  />
+                }
+              />
+            </div>
+            <div className="col-span-1">
+              <Input
+                placeholder="e.g. +1 (555) 012-3456"
+                label="Phone Number"
+                value={personalInfo.phone}
+                onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
+                rightAction={
+                  <VoiceDictationButton
+                    onTranscript={(text) => setPersonalInfo({ ...personalInfo, phone: text })}
+                    currentValue={personalInfo.phone}
+                    mode="replace"
+                    size="xs"
+                    title="Speak phone number"
+                  />
+                }
+              />
+            </div>
+            <div className="col-span-1 sm:col-span-2">
+              <Input
+                placeholder="e.g. jane@example.com"
+                label="Email Address"
+                value={personalInfo.email}
+                onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })}
+              />
+            </div>
+            <div className="col-span-1 sm:col-span-2">
+              <Input
+                placeholder="e.g. San Francisco, CA"
+                label="Location"
+                value={personalInfo.location}
+                onChange={(e) => setPersonalInfo({ ...personalInfo, location: e.target.value })}
+                rightAction={
+                  <VoiceDictationButton
+                    onTranscript={(text) => setPersonalInfo({ ...personalInfo, location: text })}
+                    currentValue={personalInfo.location}
+                    mode="replace"
+                    size="xs"
+                    title="Speak location"
+                  />
+                }
+              />
+            </div>
+            <div className="col-span-1">
+              <Input
+                placeholder="linkedin.com/in/username"
+                label="LinkedIn URL"
+                value={personalInfo.linkedin}
+                onChange={(e) => setPersonalInfo({ ...personalInfo, linkedin: e.target.value })}
+              />
+            </div>
+            <div className="col-span-1">
+              <Input
+                placeholder="github.com/username"
+                label="GitHub URL"
+                value={personalInfo.github}
+                onChange={(e) => setPersonalInfo({ ...personalInfo, github: e.target.value })}
+              />
+            </div>
           </div>
 
           <Textarea

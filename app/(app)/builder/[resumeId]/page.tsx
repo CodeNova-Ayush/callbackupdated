@@ -42,6 +42,7 @@ import {
   Star,
   Printer,
   Target,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -247,17 +248,60 @@ export default function BuilderPage(props: { params: Promise<{ resumeId: string 
   const [mobileTab, setMobileTab] = useState<'form' | 'preview' | 'sections'>('form');
   const [mobilePreviewZoom, setMobilePreviewZoom] = useState<'fit' | '100'>('fit');
   const [mobileContainerWidth, setMobileContainerWidth] = useState<number>(380);
+  const previewContainerRef = React.useRef<HTMLDivElement>(null);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState<boolean>(false);
+  const moreMenuRef = React.useRef<HTMLDivElement>(null);
+
+  const calculateAutoFitZoom = () => {
+    if (typeof window === 'undefined') return 90;
+    const container = previewContainerRef.current;
+    const availableWidth = container ? container.clientWidth - 48 : (window.innerWidth - 680);
+    if (availableWidth <= 0) return 90;
+    const fit = Math.min(100, Math.max(50, Math.floor((availableWidth / 794) * 100)));
+    return fit;
+  };
+
+  const handleAutoFit = () => {
+    const fit = calculateAutoFitZoom();
+    setZoomLevel(fit);
+  };
 
   useEffect(() => {
     const handleResize = () => {
       if (typeof window !== 'undefined') {
         setIsMobileScreen(window.innerWidth < 1024);
         setMobileContainerWidth(window.innerWidth);
+        if (window.innerWidth < 1536) {
+          setIsSidebarCollapsed(true);
+        }
       }
     };
     handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    // Initial Auto-Fit calculation for laptop screens (< 1536px)
+    const timer = setTimeout(() => {
+      if (typeof window !== 'undefined' && window.innerWidth < 1536) {
+        setIsSidebarCollapsed(true);
+        const fit = calculateAutoFitZoom();
+        if (fit < 100) setZoomLevel(fit);
+      }
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Resume State
@@ -1306,14 +1350,14 @@ ${skills.join(', ')}
   return (
     <div className="h-screen flex flex-col bg-[#ECEEF2] overflow-hidden select-none">
       {/* Top Builder Toolbar (Desktop only - mobile uses unified top app bar) */}
-      <header className="hidden md:flex h-14 sm:h-16 bg-white/95 backdrop-blur-xl border-b border-slate-200/90 px-3 sm:px-6 items-center justify-between shrink-0 no-print shadow-xs relative z-20">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 mr-1 sm:mr-2">
+      <header className="hidden md:flex h-14 sm:h-16 bg-white/95 backdrop-blur-xl border-b border-slate-200/90 px-3 sm:px-5 items-center justify-between shrink-0 no-print shadow-xs relative z-20 gap-2">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 shrink-0">
             <div className="w-8 h-8 rounded-full bg-[#1C152E] text-white flex items-center justify-center shadow-xs shrink-0">
               <FileText className="w-4 h-4" />
             </div>
-            <div className="flex flex-col hidden sm:flex">
-              <span className="font-black text-xs text-slate-900 leading-tight truncate max-w-[140px] md:max-w-none">
+            <div className="hidden lg:flex flex-col">
+              <span className="font-black text-xs text-slate-900 leading-tight truncate max-w-[120px] xl:max-w-none">
                 {personalInfo.fullName ? `${personalInfo.fullName}` : 'New Resume'}
               </span>
               <span className="text-[10px] font-bold text-slate-400">
@@ -1322,30 +1366,30 @@ ${skills.join(', ')}
             </div>
           </div>
 
-          <div className="h-6 w-px bg-slate-200 hidden md:block" />
+          <div className="h-6 w-px bg-slate-200 hidden lg:block shrink-0" />
 
           {/* Templates Button */}
           <button
             type="button"
             onClick={() => setIsTemplateModalOpen(true)}
-            className="px-3 sm:px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-[#1C152E] text-slate-800 hover:text-[#1C152E] text-xs font-bold rounded-full shadow-2xs hover:shadow-xs flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer group"
+            className="px-2.5 sm:px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-[#1C152E] text-slate-800 hover:text-[#1C152E] text-xs font-bold rounded-full shadow-2xs hover:shadow-xs flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer group shrink-0 whitespace-nowrap"
             title="Choose from 40+ ATS-ready executive templates"
           >
-            <Layout className="w-3.5 h-3.5 text-[#FF4B5E] group-hover:scale-110 transition-transform" />
-            <span className="hidden xs:inline">Templates</span>
-            <span className="px-2 py-0.5 bg-[#FFF0F3] text-[9.5px] font-bold text-[#FF4B5E] border border-[#FFCCD5] rounded-full transition-colors capitalize truncate max-w-[80px] sm:max-w-none">
+            <Layout className="w-3.5 h-3.5 text-[#FF4B5E] group-hover:scale-110 transition-transform shrink-0" />
+            <span className="hidden sm:inline">Templates</span>
+            <span className="px-2 py-0.5 bg-[#FFF0F3] text-[9.5px] font-bold text-[#FF4B5E] border border-[#FFCCD5] rounded-full transition-colors capitalize truncate max-w-[70px] sm:max-w-none">
               {selectedTemplate.replace(/_/g, ' ')}
             </span>
           </button>
 
-          {/* Mobile Simulator Toggle Button (Desktop & Tablet) */}
+          {/* Mobile Simulator Toggle Button (Desktop 2xl only, also in More menu) */}
           <button
             type="button"
             onClick={() => {
               setIsMobileSimulator(!isMobileSimulator);
               if (!isMobileSimulator) setMobileTab('form');
             }}
-            className={`px-3 sm:px-4 py-2 border text-xs font-bold rounded-full shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`hidden 2xl:flex px-3 py-1.5 border text-xs font-bold rounded-full shadow-2xs items-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               isMobileSimulator
                 ? 'bg-[#1C152E] text-white border-[#1C152E] ring-2 ring-[#1C152E]/20 shadow-xs'
                 : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:text-[#1C152E]'
@@ -1353,26 +1397,26 @@ ${skills.join(', ')}
             title={isMobileSimulator ? 'Return to Desktop 3-Zone View' : 'Toggle Smartphone Simulator View'}
           >
             <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">{isMobileSimulator ? 'Desktop Mode' : 'Mobile Simulator'}</span>
+            <span>{isMobileSimulator ? 'Desktop' : 'Mobile Sim'}</span>
           </button>
 
-          {/* Start Fresh Button */}
+          {/* Start Fresh Button (2xl screens only, also in More menu) */}
           <button
             type="button"
             onClick={handleClearData}
-            className="hidden lg:flex px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 text-xs font-bold rounded-xl shadow-2xs items-center gap-1.5 transition-all cursor-pointer"
+            className="hidden 2xl:flex px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 text-xs font-bold rounded-xl shadow-2xs items-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap"
             title="Clear all fields to start completely fresh"
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
             <span>Start Fresh</span>
           </button>
 
-          {/* Load Demo Data Button */}
+          {/* Load Demo Data Button (2xl screens only, also in More menu) */}
           {!isDemoResume && (
             <button
               type="button"
               onClick={handleLoadDemo}
-              className="hidden xl:flex px-3 py-1.5 bg-indigo-50/80 hover:bg-indigo-100/80 border border-indigo-200/80 text-indigo-700 text-xs font-bold rounded-xl shadow-2xs items-center gap-1.5 transition-all cursor-pointer"
+              className="hidden 2xl:flex px-3 py-1.5 bg-indigo-50/80 hover:bg-indigo-100/80 border border-indigo-200/80 text-indigo-700 text-xs font-bold rounded-xl shadow-2xs items-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap"
             >
               <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
               <span>Demo</span>
@@ -1380,15 +1424,15 @@ ${skills.join(', ')}
           )}
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Live ATS Audit Pop Card Button */}
           <button
             type="button"
             onClick={() => setIsAtsModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/90 text-emerald-800 text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/90 text-emerald-800 text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer shrink-0 whitespace-nowrap"
             title="Inspect real-time ATS compatibility score & rubric breakdown"
           >
-            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span>ATS ({calculateLiveAtsScore()}%)</span>
           </button>
 
@@ -1396,70 +1440,137 @@ ${skills.join(', ')}
           <button
             type="button"
             onClick={() => setIsJdModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200/90 text-cyan-800 text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200/90 text-cyan-800 text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer shrink-0 whitespace-nowrap"
             title="Compare your active resume against any target Job Description"
           >
-            <Target className="w-3.5 h-3.5 text-cyan-600" />
+            <Target className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
             <span className="hidden sm:inline">JD Match</span>
           </button>
 
-          {/* Local Storage Auto-Save Live Badge */}
-          <div className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 bg-emerald-50/90 border border-emerald-200/80 rounded-full text-[10.5px] font-extrabold text-emerald-800 shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Auto-saved locally</span>
-          </div>
-
-          {/* Precision Zoom Controls (Desktop only) */}
-          <div className="hidden md:flex items-center gap-1 bg-white border border-slate-200/90 rounded-xl p-1 shadow-2xs">
+          {/* Precision Zoom Controls with Auto-Fit */}
+          <div className="flex items-center gap-0.5 bg-white border border-slate-200/90 rounded-xl p-1 shadow-2xs shrink-0">
             <button
-              onClick={() => setZoomLevel((z) => Math.max(70, z - 10))}
-              className="w-6 h-6 flex items-center justify-center hover:bg-slate-100 rounded-lg text-slate-600 transition-colors cursor-pointer"
+              onClick={() => setZoomLevel((z) => Math.max(50, z - 10))}
+              className="w-6 h-6 flex items-center justify-center hover:bg-slate-100 rounded-lg text-slate-600 transition-colors cursor-pointer shrink-0"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="text-[11px] font-black text-slate-800 px-1.5 min-w-[38px] text-center font-mono">
+            <button
+              onClick={handleAutoFit}
+              className="px-1.5 py-0.5 text-[10px] font-black text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
+              title="Auto-Fit Resume to Screen Width"
+            >
+              Fit
+            </button>
+            <span className="text-[11px] font-black text-slate-800 px-1 min-w-[34px] text-center font-mono">
               {zoomLevel}%
             </span>
             <button
               onClick={() => setZoomLevel((z) => Math.min(130, z + 10))}
-              className="w-6 h-6 flex items-center justify-center hover:bg-slate-100 rounded-lg text-slate-600 transition-colors cursor-pointer"
+              className="w-6 h-6 flex items-center justify-center hover:bg-slate-100 rounded-lg text-slate-600 transition-colors cursor-pointer shrink-0"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* Save .JSON Button */}
-          <button
-            type="button"
-            onClick={() => handleDownloadLocalFile('json')}
-            className="hidden sm:flex h-10 px-4 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold rounded-full shadow-2xs items-center gap-2 transition-all cursor-pointer"
-            title="Save raw JSON resume file to your device"
-          >
-            <Save className="w-3.5 h-3.5 text-slate-500" />
-            <span className="hidden md:inline">Save .JSON</span>
-          </button>
+          {/* More Actions Dropdown Menu (Contains Demo, Start Fresh, Save JSON, Simulator) */}
+          <div className="relative shrink-0" ref={moreMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsMoreMenuOpen((v) => !v)}
+              className="h-9 px-2.5 sm:px-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold rounded-full shadow-2xs flex items-center gap-1 transition-all cursor-pointer shrink-0"
+              title="More Actions & Tools"
+            >
+              <MoreHorizontal className="w-4 h-4 text-slate-600" />
+              <span className="hidden xl:inline text-xs">More</span>
+            </button>
+
+            {isMoreMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMoreMenuOpen(false);
+                    handleDownloadLocalFile('json');
+                  }}
+                  className="w-full px-3.5 py-2 flex items-center gap-2.5 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer font-medium"
+                >
+                  <Save className="w-4 h-4 text-slate-500" />
+                  <span>Save as .JSON</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMoreMenuOpen(false);
+                    handleDownloadLocalFile('txt');
+                  }}
+                  className="w-full px-3.5 py-2 flex items-center gap-2.5 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer font-medium"
+                >
+                  <FileText className="w-4 h-4 text-slate-500" />
+                  <span>Export Plain .TXT</span>
+                </button>
+                <div className="h-px bg-slate-100 my-1" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMoreMenuOpen(false);
+                    setIsMobileSimulator(!isMobileSimulator);
+                  }}
+                  className="w-full px-3.5 py-2 flex items-center gap-2.5 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer font-medium"
+                >
+                  <Smartphone className="w-4 h-4 text-slate-500" />
+                  <span>{isMobileSimulator ? 'Desktop 3-Zone' : 'Mobile Simulator'}</span>
+                </button>
+                {!isDemoResume && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      handleLoadDemo();
+                    }}
+                    className="w-full px-3.5 py-2 flex items-center gap-2.5 text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer font-medium"
+                  >
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                    <span>Load Demo Data</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMoreMenuOpen(false);
+                    handleClearData();
+                  }}
+                  className="w-full px-3.5 py-2 flex items-center gap-2.5 text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer font-medium"
+                >
+                  <RotateCcw className="w-4 h-4 text-rose-500" />
+                  <span>Start Fresh (Clear)</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Preview & Export PDF Flagship Button */}
           <button
             type="button"
             onClick={handleOpenExportPreview}
-            className="h-10 px-4 sm:px-5 bg-[#1c152e] hover:bg-[#2b1f45] active:scale-[0.98] text-white font-bold text-xs rounded-full shadow-sm hover:shadow flex items-center gap-2 transition-all cursor-pointer"
+            className="h-9 px-3 sm:px-4 bg-[#1c152e] hover:bg-[#2b1f45] active:scale-[0.98] text-white font-bold text-xs rounded-full shadow-2xs hover:shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+            title="Preview high-resolution PDF and export"
           >
-            <Download className="w-3.5 h-3.5 text-white" />
-            <span><span className="hidden sm:inline">Preview & </span>Export PDF</span>
+            <Download className="w-3.5 h-3.5 text-white shrink-0" />
+            <span className="whitespace-nowrap"><span className="hidden sm:inline">Preview & </span>Export PDF</span>
           </button>
 
           {/* Finish & Save Resume Flagship Button */}
           <button
             type="button"
             onClick={handleFinishResume}
-            className="h-10 px-4 sm:px-5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-xs rounded-full shadow-sm hover:shadow flex items-center gap-2 transition-all cursor-pointer"
+            className="h-9 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-xs rounded-full shadow-2xs hover:shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap"
             title="Complete your resume and save it to your candidate account"
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-            <span>Finish & Save</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
+            <span className="whitespace-nowrap">Finish & Save</span>
           </button>
         </div>
       </header>
@@ -2088,18 +2199,40 @@ ${skills.join(', ')}
             </div>
 
             {/* Centered Canvas Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center">
+            <div
+              ref={previewContainerRef}
+              className="flex-1 overflow-auto p-3 sm:p-5 lg:p-6 flex flex-col items-center"
+            >
               {/* Text-Editable Resume Notification Pill */}
               <div className="mb-3 inline-flex items-center gap-2 text-xs font-semibold text-[#1C152E] bg-white border border-slate-200/90 shadow-2xs px-4 py-1.5 rounded-full select-none shrink-0">
                 <span className="w-2 h-2 rounded-full bg-[#FF4B5E] animate-pulse" />
                 <Pencil className="w-3.5 h-3.5 text-[#FF4B5E]" />
                 <span>Live Text-Editable Resume — Click any heading, bullet, or text directly on the page to type & edit</span>
               </div>
-              <ResumeTemplateRenderer
-                templateId={selectedTemplate}
-                data={resumeData}
-                zoomLevel={zoomLevel}
-              />
+
+              {/* Exact scaled bounding box preventing flex negative overflow clipping */}
+              <div
+                className="transition-all duration-150 shrink-0 my-auto flex justify-center"
+                style={{
+                  width: `${Math.round(794 * (zoomLevel / 100))}px`,
+                  minHeight: `${Math.round(1123 * (zoomLevel / 100))}px`,
+                }}
+              >
+                <div
+                  style={{
+                    width: '794px',
+                    minHeight: '1123px',
+                    transform: `scale(${zoomLevel / 100})`,
+                    transformOrigin: 'top left',
+                  }}
+                >
+                  <ResumeTemplateRenderer
+                    templateId={selectedTemplate}
+                    data={resumeData}
+                    zoomLevel={100}
+                  />
+                </div>
+              </div>
             </div>
 
             {isEditorCollapsed && (
@@ -2118,11 +2251,11 @@ ${skills.join(', ')}
             <main
               className={`${
                 previewWidthPreset === 'expanded'
-                  ? 'w-[320px]'
+                  ? 'w-[300px] xl:w-[320px]'
                   : previewWidthPreset === 'wide'
-                  ? 'w-[360px] xl:w-[390px]'
-                  : 'w-[420px] xl:w-[460px]'
-              } shrink-0 bg-white border-l border-slate-200/90 flex flex-col overflow-y-auto p-5 gap-6 no-print transition-all duration-300`}
+                  ? 'w-[330px] xl:w-[350px]'
+                  : 'w-[350px] lg:w-[360px] xl:w-[380px] 2xl:w-[420px]'
+              } shrink-0 bg-white border-l border-slate-200/90 flex flex-col overflow-y-auto p-4 sm:p-5 gap-5 no-print transition-all duration-300`}
             >
               <ResumeSectionEditor
                 activeSection={activeSection}
