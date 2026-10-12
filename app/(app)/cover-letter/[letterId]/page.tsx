@@ -63,7 +63,18 @@ export default function CoverLetterEditorPage() {
     return false;
   };
 
-  const [letterData, setLetterData] = useState<CoverLetterItem | null>(null);
+  const [letterData, setLetterData] = useState<CoverLetterItem>(() => {
+    if (typeof window !== 'undefined' && letterId) {
+      const existing = getCoverLetterById(letterId);
+      if (existing) return existing;
+    }
+    return {
+      ...FLOWCV_DEFAULT_COVER_LETTER,
+      id: letterId || 'cl_default',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  });
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ai'>('content');
   const [mobileViewMode, setMobileViewMode] = useState<'edit' | 'preview'>('edit');
   const [zoomMode, setZoomMode] = useState<'fit' | 'custom'>('fit');
@@ -193,7 +204,6 @@ export default function CoverLetterEditorPage() {
   // Auto-save debouncer
   const updateLetter = (updater: (prev: CoverLetterItem) => CoverLetterItem) => {
     setLetterData((prev) => {
-      if (!prev) return null;
       const updated = updater(prev);
       setSaveStatus('saving');
       saveCoverLetterToStore(updated);

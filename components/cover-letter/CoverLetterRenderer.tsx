@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CoverLetterItem } from '@/lib/client-cover-letter-store';
+import { CoverLetterItem, FLOWCV_DEFAULT_COVER_LETTER } from '@/lib/client-cover-letter-store';
 import { Mail, Phone, MapPin, Globe } from 'lucide-react';
 
 const LinkedinIcon: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
@@ -58,7 +58,15 @@ export const CoverLetterRenderer: React.FC<CoverLetterRendererProps> = ({
   isMicroPreview = false,
   className = '',
 }) => {
-  const { sender, recipient, letterDetails, style, templateId } = data;
+  const safeData = data || (FLOWCV_DEFAULT_COVER_LETTER as CoverLetterItem);
+  const sender = safeData?.sender || FLOWCV_DEFAULT_COVER_LETTER.sender;
+  const recipient = safeData?.recipient || FLOWCV_DEFAULT_COVER_LETTER.recipient;
+  const letterDetails = safeData?.letterDetails || FLOWCV_DEFAULT_COVER_LETTER.letterDetails;
+  const style = safeData?.style || FLOWCV_DEFAULT_COVER_LETTER.style;
+  const templateId = safeData?.templateId || 'classic_left';
+  const paragraphs = Array.isArray(letterDetails?.body)
+    ? letterDetails.body
+    : FLOWCV_DEFAULT_COVER_LETTER.letterDetails.body;
 
   const fontClass =
     style?.fontFamily === 'serif'
@@ -83,22 +91,22 @@ export const CoverLetterRenderer: React.FC<CoverLetterRendererProps> = ({
         align === 'center' ? 'items-center text-center' : align === 'right' ? 'items-end text-right' : 'items-start text-left'
       }`}
     >
-      <span className="text-slate-900 font-medium text-[13px]">{letterDetails.signOff || 'Sincerely,'}</span>
+      <span className="text-slate-900 font-medium text-[13px]">{letterDetails?.signOff || 'Sincerely,'}</span>
       <div className="my-0.5">
         <HandwrittenSignature
-          name={letterDetails.signatureText || sender.fullName || 'Signature'}
+          name={letterDetails?.signatureText || sender?.fullName || 'Signature'}
           color={sigColor || (accentColor === '#1C152E' ? '#1E3A8A' : accentColor)}
         />
       </div>
-      <span className="font-bold text-slate-950 text-[13px] tracking-tight">{sender.fullName}</span>
-      {sender.jobTitle && <span className="text-slate-500 text-[11.5px] mt-0.5">{sender.jobTitle}</span>}
+      <span className="font-bold text-slate-950 text-[13px] tracking-tight">{sender?.fullName || 'Candidate'}</span>
+      {sender?.jobTitle && <span className="text-slate-500 text-[11.5px] mt-0.5">{sender.jobTitle}</span>}
     </div>
   );
 
   // Common Paragraphs Body Block
   const renderBodyParagraphs = () => (
     <div className="flex flex-col gap-3.5 text-slate-700 text-[12.5px] sm:text-[13px] leading-[1.75] text-left">
-      {letterDetails.body.map((para, idx) => (
+      {paragraphs.map((para, idx) => (
         <p key={idx} className="whitespace-pre-line">
           {para}
         </p>
