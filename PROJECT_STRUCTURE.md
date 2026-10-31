@@ -77,8 +77,8 @@ buildersprog/
 │   ├── db/                       # Database Client Instantiation
 │   │   └── prisma.ts             # Prisma Client instance
 │   └── services/                 # Business Logic & AI Engines
-│       ├── ats-scorer.ts         # ATS Parser & Scoring Engine
-│       ├── jd-matcher.ts         # Job Description Keyword Matching Engine
+│       ├── ats-service.ts        # ATS Parser & Scoring Engine
+│       ├── jd-match-service.ts   # Job Description Keyword Matching Engine
 │       ├── rag-agent-service.ts  # Grounded RAG Candidate Agent Engine
 │       └── verification-service.ts# Trust Score & Claim Verification Engine
 ├── prisma/                       # Database Configuration & Migration Scripts

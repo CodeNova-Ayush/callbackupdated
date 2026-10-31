@@ -20,9 +20,9 @@ app/api routes ── lib/services orchestration ── Prisma (lib/db.ts)
 - Pages under `app/(app)` are the product: dashboard, builder, analyzer, agent, JD match, trust score, skill graph, opportunities, voice intake, import, cover letter, recruiter dashboard.
 - `frontend/` is an old static prototype. The running UI is `app/` and `components/`.
 - Resume section bodies are JSON strings on `ResumeSection`. Templates render that JSON into selectable A4 documents.
-- `backend/services` is the engine layer. Four `lib/services` files only re-export it. Other `lib/services` files own import, persistence, analysis, and model orchestration.
+- `backend/services` is the engine layer. `lib/services/rag-agent-service.ts` and `verification-service.ts` only re-export it. Other `lib/services` files own import, persistence, analysis, and model orchestration.
 - All model calls go through `executeMultiProviderLLM`.
-- `lib/db.ts` is the only Prisma client. It copies SQLite to `/tmp` on serverless and `resume-service` keeps an in-memory resume cache. `database/db.ts` re-exports `lib/db.ts`.
+- `lib/db.ts` is the only Prisma client (Postgres). `resume-service` keeps an in-memory resume cache.
 
 ## Persistence split
 

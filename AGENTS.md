@@ -34,10 +34,10 @@ Next.js 16 App Router, React 19, TypeScript strict, Tailwind CSS v4. `app/` stay
 Keep this layering. Do not add a third place for the same logic.
 
 1. **Route handlers** in `app/api` parse the request, call a service, and return JSON. They stay thin.
-2. **Engines** in `backend/services` own ATS scoring, JD matching, the living-resume agent, and claim verification. `lib/services/ats-scorer.ts`, `jd-matcher.ts`, `rag-agent-service.ts`, and `verification-service.ts` re-export those engines. New scoring, matching, grounding, or verification logic goes in `backend/services`, not in a page.
+2. **Engines** in `backend/services` own ATS scoring, JD matching, the living-resume agent, and claim verification. `lib/services/rag-agent-service.ts` and `verification-service.ts` re-export those engines; ATS scoring and JD matching live in `lib/services/ats-service.ts` and `jd-match-service.ts`. New scoring, matching, grounding, or verification logic goes in `backend/services`, not in a page.
 3. **Orchestration** in the other `lib/services` files talks to Prisma and the model provider: resume persistence, import, document parsing, ATS analysis, JD-match persistence, and bullet or cover-letter assist.
 4. **Models** go through `executeMultiProviderLLM` in `lib/services/llm-provider.ts`. Provider order is environment-driven (Groq, OpenRouter, NVIDIA, OpenAI, Anthropic). Do not call a provider SDK from a page or route.
-5. **Prisma** is the server record. The client is created in `lib/db.ts`, including the serverless SQLite copy to `/tmp/dev.db` and an in-memory resume cache in `lib/services/resume-service.ts`. `database/db.ts` and `lib/db/index.ts` re-export that client. Do not create another `PrismaClient`.
+5. **Prisma** is the server record. The Postgres client is created in `lib/db.ts`, and `lib/services/resume-service.ts` keeps an in-memory resume cache. Import the client only from `@/lib/db`. Do not create another `PrismaClient`.
 
 ### Two resume stores
 
