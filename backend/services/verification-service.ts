@@ -38,7 +38,7 @@ export interface ClaimVerificationResult {
   }[];
 }
 
-export async function verifyResumeClaims(resumeId: string): Promise<ClaimVerificationResult> {
+export async function verifyResumeClaims(userId: string, resumeId: string): Promise<ClaimVerificationResult> {
   let candidateName = 'Alex Rivera';
   let candidateTitle = 'Senior Full-Stack & AI Systems Architect';
   let experiences: any[] = [];
@@ -48,7 +48,7 @@ export async function verifyResumeClaims(resumeId: string): Promise<ClaimVerific
   let certifications: string[] = [];
 
   try {
-    const resume = await getResumeWithSections(resumeId);
+    const resume = await getResumeWithSections(userId, resumeId);
 
     if (resume?.sections) {
       for (const s of resume.sections) {

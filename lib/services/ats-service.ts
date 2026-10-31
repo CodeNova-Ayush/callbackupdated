@@ -20,7 +20,7 @@ export interface ATSAnalysisOutput {
   };
 }
 
-export async function analyzeResume(resumeId: string): Promise<ATSAnalysisOutput> {
+export async function analyzeResume(userId: string, resumeId: string): Promise<ATSAnalysisOutput> {
   let candidateName = 'Ayush Mishra';
   let candidateTitle = 'Staff AI Engineer';
   let personalInfo: any = null;
@@ -31,7 +31,10 @@ export async function analyzeResume(resumeId: string): Promise<ATSAnalysisOutput
   let resumeTitle = 'Resume Document';
 
   try {
-    const resume = await getResumeWithSections(resumeId);
+    const resume = await getResumeWithSections(userId, resumeId);
+    if (!resume) {
+      throw new Error('RESUME_NOT_FOUND');
+    }
 
     if (resume?.title) resumeTitle = resume.title;
 

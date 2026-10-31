@@ -55,26 +55,14 @@ export default function CoverLetterEditorPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
-  const checkIsAuthenticated = () => {
-    if (isSignedIn) return true;
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('is_authenticated') === 'true';
-    }
-    return false;
-  };
+  const checkIsAuthenticated = () => Boolean(isSignedIn);
 
-  const [letterData, setLetterData] = useState<CoverLetterItem>(() => {
-    if (typeof window !== 'undefined' && letterId) {
-      const existing = getCoverLetterById(letterId);
-      if (existing) return existing;
-    }
-    return {
-      ...FLOWCV_DEFAULT_COVER_LETTER,
-      id: letterId || 'cl_default',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  });
+  const [letterData, setLetterData] = useState<CoverLetterItem>(() => ({
+    ...FLOWCV_DEFAULT_COVER_LETTER,
+    id: letterId || 'cl_default',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }));
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'ai'>('content');
   const [mobileViewMode, setMobileViewMode] = useState<'edit' | 'preview'>('edit');
   const [zoomMode, setZoomMode] = useState<'fit' | 'custom'>('fit');
@@ -109,22 +97,20 @@ export default function CoverLetterEditorPage() {
   // Load letter
   useEffect(() => {
     if (!letterId) return;
-
-    const existing = getCoverLetterById(letterId);
-    if (existing) {
-      setLetterData(existing);
-      setAiRole(existing.sender.jobTitle || '');
-      setAiCompany(existing.recipient.company || '');
-    } else {
-      // Create new with this id or fallback
-      const created = createNewCoverLetter('classic_left');
-      setLetterData({
-        ...created,
-        id: letterId,
-      });
+    const load = async () => {
+      const existing = await getCoverLetterById(letterId);
+      if (existing) {
+        setLetterData(existing);
+        setAiRole(existing.sender.jobTitle || '');
+        setAiCompany(existing.recipient.company || '');
+        return;
+      }
+      const created = await createNewCoverLetter('classic_left');
+      setLetterData({ ...created, id: letterId });
       setAiRole(created.sender.jobTitle || '');
       setAiCompany(created.recipient.company || '');
-    }
+    };
+    load().catch(() => undefined);
   }, [letterId]);
 
   // Handle dynamic container width calculation for perfect auto-fit
@@ -307,38 +293,7 @@ export default function CoverLetterEditorPage() {
       return;
     }
 
-    // 1. Try High-Fidelity Server-Side PDF Export first
-    try {
-      const res = await fetch('/api/export-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          html: printElement.outerHTML,
-          title: letterData.title || 'Cover Letter',
-        }),
-      });
-
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/pdf')) {
-          const blob = await res.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-          setIsExportingPDF(false);
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn('Server export failed, falling back to client jsPDF:', e);
-    }
-
-    // 2. High-Fidelity Client-Side jsPDF + html2canvas Single Page Direct Download
+    // Client-side PDF export
     try {
       if (typeof document !== 'undefined' && document.fonts) {
         await document.fonts.ready;
@@ -412,9 +367,7 @@ export default function CoverLetterEditorPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      const isAuth =
-        isSignedIn || localStorage.getItem('is_authenticated') === 'true';
-      if (urlParams.get('auto_download') === 'true' && isAuth) {
+      if (urlParams.get('auto_download') === 'true' && isSignedIn) {
         window.history.replaceState({}, '', window.location.pathname);
         setTimeout(() => {
           handleExportPDF(true);

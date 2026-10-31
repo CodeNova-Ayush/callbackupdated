@@ -36,85 +36,29 @@ export const Sidebar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const resumeIdMatch = pathname.match(/\/(builder|analyzer|jd-match)\/([^\/]+)/);
-  const [activeResumeId, setActiveResumeId] = useState<string>(() => {
-    if (resumeIdMatch) return resumeIdMatch[2];
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('active_resume_id') || 'demo-resume-alex-1';
-    }
-    return 'demo-resume-alex-1';
-  });
+  const [activeResumeId, setActiveResumeId] = useState<string>(() => (resumeIdMatch ? resumeIdMatch[2] : ''));
 
   React.useEffect(() => {
-    if (resumeIdMatch) {
-      if (resumeIdMatch[2] !== 'demo-resume-alex-1') {
-        setActiveResumeId(resumeIdMatch[2]);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('active_resume_id', resumeIdMatch[2]);
-        }
-      }
-    } else if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('active_resume_id');
-      if (stored) setActiveResumeId(stored);
+    if (resumeIdMatch && resumeIdMatch[2] !== 'demo-resume-alex-1') {
+      setActiveResumeId(resumeIdMatch[2]);
     }
   }, [pathname, resumeIdMatch]);
 
-  React.useEffect(() => {
-    const handleStorageChange = () => {
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('active_resume_id');
-        if (stored) setActiveResumeId(stored);
-      }
-    };
-    window.addEventListener('active_resume_changed', handleStorageChange);
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('active_resume_changed', handleStorageChange);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+  const [candidateName, setCandidateName] = useState('Candidate Profile');
+  const [candidateEmail, setCandidateEmail] = useState('candidate@callback.ai');
 
-  const [candidateName, setCandidateName] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('active_candidate_name') || 'Candidate Profile';
-    }
-    return 'Candidate Profile';
-  });
-  const [candidateEmail, setCandidateEmail] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('active_candidate_email') || 'candidate@callback.ai';
-    }
-    return 'candidate@callback.ai';
-  });
-
-  const syncIdentityFromStorage = () => {
-    if (typeof window !== 'undefined') {
-      const activeStored = getActiveStoredResume();
-      if (activeStored) {
-        if (activeStored.candidateName && activeStored.candidateName !== 'Candidate Profile') {
-          setCandidateName(activeStored.candidateName);
-        }
-        if (activeStored.candidateEmail) {
-          setCandidateEmail(activeStored.candidateEmail);
-        }
-        if (activeStored.id) {
-          setActiveResumeId(activeStored.id);
-        }
-        return;
-      }
-
-      const storedName = localStorage.getItem('active_candidate_name');
-      const storedEmail = localStorage.getItem('active_candidate_email');
-      const storedId = localStorage.getItem('active_resume_id');
-      if (storedName && storedName !== 'Alex Rivera') setCandidateName(storedName);
-      if (storedEmail && !storedEmail.includes('alex.rivera')) setCandidateEmail(storedEmail);
-      if (storedId) setActiveResumeId(storedId);
-    }
+  const sync_identity = async () => {
+    const activeStored = await getActiveStoredResume();
+    if (!activeStored) return;
+    if (activeStored.candidateName) setCandidateName(activeStored.candidateName);
+    if (activeStored.candidateEmail) setCandidateEmail(activeStored.candidateEmail);
+    if (activeStored.id) setActiveResumeId(activeStored.id);
   };
 
   React.useEffect(() => {
-    syncIdentityFromStorage();
+    sync_identity();
     const handleStorageChange = () => {
-      syncIdentityFromStorage();
+      sync_identity();
     };
     window.addEventListener('active_resume_changed', handleStorageChange);
     window.addEventListener('storage', handleStorageChange);
@@ -131,39 +75,22 @@ export const Sidebar: React.FC = () => {
     const name = user.fullName || user.firstName || primaryEmail?.split('@')[0];
     if (name && (candidateName === 'Candidate Profile' || candidateName === 'Alex Rivera')) {
       setCandidateName(name);
-      if (typeof window !== 'undefined') localStorage.setItem('active_candidate_name', name);
     }
     if (primaryEmail && (candidateEmail === 'candidate@callback.ai' || candidateEmail.includes('alex.rivera'))) {
       setCandidateEmail(primaryEmail);
-      if (typeof window !== 'undefined') localStorage.setItem('active_candidate_email', primaryEmail);
     }
   }, [isLoaded, user]);
 
   React.useEffect(() => {
     if (!activeResumeId || activeResumeId === 'demo-resume-alex-1') {
-      const activeStored = getActiveStoredResume();
-      if (activeStored && activeStored.id !== 'demo-resume-alex-1') {
-        setActiveResumeId(activeStored.id);
-        setCandidateName(activeStored.candidateName);
-        if (activeStored.candidateEmail) setCandidateEmail(activeStored.candidateEmail);
-      }
+      getActiveStoredResume().then((activeStored) => {
+        if (activeStored && activeStored.id !== 'demo-resume-alex-1') {
+          setActiveResumeId(activeStored.id);
+          setCandidateName(activeStored.candidateName);
+          if (activeStored.candidateEmail) setCandidateEmail(activeStored.candidateEmail);
+        }
+      });
       return;
-    }
-
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('callback_ai_saved_resume_' + activeResumeId);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed.personalInfo?.fullName) {
-            setCandidateName(parsed.personalInfo.fullName);
-          }
-          if (parsed.personalInfo?.email) {
-            setCandidateEmail(parsed.personalInfo.email);
-          }
-          return;
-        } catch {}
-      }
     }
 
     fetch(`/api/resumes/${activeResumeId}`)
@@ -186,9 +113,6 @@ export const Sidebar: React.FC = () => {
           }
           if (name && name !== 'Alex Rivera') {
             setCandidateName(name);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('active_candidate_name', name);
-            }
           }
         }
       })

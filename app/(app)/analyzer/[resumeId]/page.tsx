@@ -71,8 +71,8 @@ export default function AnalyzerPage(props: { params: Promise<{ resumeId: string
       }
     }
 
-    const constructFallbackAnalysis = () => {
-      const local = getResumeFromStore(resumeId) || getActiveStoredResume();
+    const constructFallbackAnalysis = async () => {
+      const local = (await getResumeFromStore(resumeId)) || (await getActiveStoredResume());
       const candidateName = local?.candidateName || 'Candidate';
       const candidateTitle = local?.candidateTitle || 'Software Engineer';
       const experiences = local?.parsedSections?.experience || [];
@@ -119,9 +119,9 @@ export default function AnalyzerPage(props: { params: Promise<{ resumeId: string
           setLoading(false);
         }, 1500);
       })
-      .catch((err) => {
+      .catch(async (err) => {
         console.warn('Analysis fetch error, utilizing resilient local store:', err);
-        const fallback = constructFallbackAnalysis();
+        const fallback = await constructFallbackAnalysis();
         setTimeout(() => {
           setAnalysis(fallback);
           setLoading(false);

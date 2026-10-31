@@ -1,153 +1,90 @@
 import { NextResponse } from 'next/server';
-import { matchResumeWithJD } from '@/lib/services/jd-match-service';
-import { extractTextFromPdf, extractTextFromDocx } from '@/lib/services/document-parser';
-import { parseAndImportOldResume } from '@/lib/services/resume-importer';
 import { db } from '@/lib/db';
-import { defaultCandidateResume } from '@/lib/services/resume-service';
+import { bad_request, guard_model, guard_user, not_found } from '@/lib/api-guard';
+import { matchResumeWithJD } from '@/lib/services/jd-match-service';
+import { parseAndImportOldResume } from '@/lib/services/resume-importer';
+import { assert_request_size, text_from_upload, upload_error_response } from '@/lib/upload';
+import { limits, text, ValidationError } from '@/lib/validate';
 
 export async function POST(request: Request) {
+  const { user, response } = await guard_user();
+  if (!user) return response;
+  const limited = guard_model(user.id);
+  if (limited) return limited;
   try {
+    assert_request_size(request);
     const contentType = request.headers.get('content-type') || '';
-
     let resumeId = '';
     let jdText = '';
     let uploadedFileName = '';
 
-    let candidateContext: any = null;
-
-    // Handle Multipart Form Data (Direct File Upload + Match)
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
-      const file = formData.get('file') as File | null;
-      jdText = (formData.get('jdText') as string) || '';
-      const existingResumeId = (formData.get('resumeId') as string) || '';
-
-      if (file && file.size > 0) {
-        uploadedFileName = file.name;
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        let rawResumeText = '';
-        if (file.name.toLowerCase().endsWith('.pdf')) {
-          rawResumeText = await extractTextFromPdf(buffer);
-        } else if (file.name.toLowerCase().endsWith('.docx')) {
-          rawResumeText = await extractTextFromDocx(buffer);
-        } else {
-          rawResumeText = buffer.toString('utf-8');
+      const file = formData.get('file');
+      jdText = text(formData.get('jdText'), limits.jdText);
+      const existingResumeId = text(formData.get('resumeId'), limits.shortField);
+      if (file instanceof File && file.size > 0) {
+        uploadedFileName = text(file.name, limits.shortField);
+        const rawResumeText = await text_from_upload(file);
+        if (!rawResumeText.trim()) {
+          return NextResponse.json({ error: 'Uploaded file could not be parsed.' }, { status: 400 });
         }
-
-        if (!rawResumeText || rawResumeText.trim().length === 0) {
-          return NextResponse.json(
-            { error: 'Uploaded file could not be parsed. Please check the file format.' },
-            { status: 400 }
-          );
-        }
-
-        // Import parsed resume to database
-        const imported = await parseAndImportOldResume(rawResumeText, undefined, file.name);
+        const imported = await parseAndImportOldResume(user.id, rawResumeText.slice(0, limits.rawText), undefined, uploadedFileName);
         resumeId = imported.resumeId;
       } else if (existingResumeId) {
         resumeId = existingResumeId;
       }
     } else {
-      // Standard JSON Request
       const body = await request.json();
-      resumeId = body.resumeId;
-      jdText = body.jdText;
-      candidateContext = body.candidateContext;
+      resumeId = text(body.resumeId, limits.shortField);
+      jdText = text(body.jdText, limits.jdText);
     }
 
-    if (!jdText || jdText.trim().length === 0) {
+    if (!jdText.trim()) {
       return NextResponse.json({ error: 'Please provide a target job description.' }, { status: 400 });
     }
 
-    // If no resumeId specified, find the latest active resume in DB
     if (!resumeId) {
-      const latestResume = await db.resume.findFirst({
+      const latest = await db.resume.findFirst({
+        where: { userId: user.id },
         orderBy: { updatedAt: 'desc' },
       });
-      resumeId = latestResume?.id || 'demo-resume-alex-1';
+      if (!latest) {
+        return NextResponse.json({ error: 'Create a resume before matching a job description.' }, { status: 400 });
+      }
+      resumeId = latest.id;
     }
 
-    // Run Real Semantic / LLM JD Match
-    const match = await matchResumeWithJD(resumeId, jdText, candidateContext);
-
-    return NextResponse.json({
-      success: true,
-      resumeId,
-      uploadedFileName,
-      match,
-    });
-  } catch (error: any) {
-    console.error('Match error in api/match:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to calculate job description match.' },
-      { status: 500 }
-    );
+    const match = await matchResumeWithJD(user.id, resumeId, jdText);
+    return NextResponse.json({ success: true, resumeId, uploadedFileName, match });
+  } catch (error) {
+    if (error instanceof ValidationError) return bad_request(error.message);
+    const upload = upload_error_response(error);
+    if (upload) return NextResponse.json({ error: upload.error }, { status: upload.status });
+    if (error instanceof Error && error.message === 'RESUME_NOT_FOUND') return not_found();
+    console.error('Match error in api/match:', error instanceof Error ? error.message : 'unknown error');
+    return NextResponse.json({ error: 'Failed to calculate job description match.' }, { status: 500 });
   }
 }
 
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const resumeId = searchParams.get('resumeId');
-
-    // Fetch all user resumes for quick switching
-    const resumes = await db.resume.findMany({
-      select: {
-        id: true,
-        title: true,
-        updatedAt: true,
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 10,
-    }).catch(() => []);
-
-    const resumeMap = new Map<string, any>();
-    for (const r of resumes) {
-      resumeMap.set(r.id, r);
-    }
-
-    // Merge in-memory resumes
-    const { memoryResumesCache, defaultCandidateResume } = await import('@/lib/services/resume-service');
-    for (const [id, r] of memoryResumesCache.entries()) {
-      if (!resumeMap.has(id)) {
-        resumeMap.set(id, {
-          id: r.id,
-          title: r.title,
-          updatedAt: new Date(),
-        });
-      }
-    }
-
-    if (resumeMap.size === 0) {
-      resumeMap.set(defaultCandidateResume.id, {
-        id: defaultCandidateResume.id,
-        title: defaultCandidateResume.title,
-        updatedAt: new Date(),
-      });
-    }
-
-    const mergedResumes = Array.from(resumeMap.values());
-
-    let latestMatch = null;
-    if (resumeId) {
-      latestMatch = await db.matchResult.findFirst({
-        where: { resumeId },
-        orderBy: { createdAt: 'desc' },
-        include: { jobDescription: true },
-      });
-    }
-
-    return NextResponse.json({
-      resumes: mergedResumes,
-      latestMatch,
+  const { user, response } = await guard_user();
+  if (!user) return response;
+  const { searchParams } = new URL(request.url);
+  const resumeId = searchParams.get('resumeId');
+  const resumes = await db.resume.findMany({
+    where: { userId: user.id },
+    select: { id: true, title: true, updatedAt: true },
+    orderBy: { updatedAt: 'desc' },
+    take: 20,
+  });
+  let latestMatch = null;
+  if (resumeId) {
+    latestMatch = await db.matchResult.findFirst({
+      where: { resumeId, resume: { userId: user.id } },
+      orderBy: { createdAt: 'desc' },
+      include: { jobDescription: true },
     });
-  } catch (error: any) {
-    console.error('Match context fetch error:', error);
-    return NextResponse.json({
-      resumes: [defaultCandidateResume],
-      latestMatch: null,
-    }, { status: 200 });
   }
+  return NextResponse.json({ resumes, latestMatch });
 }

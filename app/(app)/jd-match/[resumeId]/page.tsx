@@ -124,17 +124,6 @@ export default function JDMatchPage(props: { params: Promise<{ resumeId: string 
         router.replace(`/jd-match/${storedActiveId}`);
         return;
       }
-
-      try {
-        const saved = localStorage.getItem('callback_ai_saved_resume_' + resumeId);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.personalInfo?.fullName) name = parsed.personalInfo.fullName;
-          if (parsed.personalInfo?.title) title = parsed.personalInfo.title;
-          if (parsed.personalInfo?.email) email = parsed.personalInfo.email;
-          setCandidateInfo({ name, title, email });
-        }
-      } catch (e) {}
     }
 
     fetch(`/api/resumes/${resumeId}`)
@@ -185,40 +174,13 @@ export default function JDMatchPage(props: { params: Promise<{ resumeId: string 
     setLoadingStep('Analyzing with AI & computing match score...');
 
     try {
-      let clientFullContext: any = null;
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('callback_ai_saved_resume_' + targetResumeId) || localStorage.getItem('active_resume_data');
-        if (saved) {
-          try {
-            clientFullContext = JSON.parse(saved);
-          } catch {}
-        }
-        if (!clientFullContext) {
-          try {
-            for (let i = 0; i < localStorage.length; i++) {
-              const k = localStorage.key(i);
-              if (k && k.startsWith('callback_ai_saved_resume_')) {
-                const item = localStorage.getItem(k);
-                if (item) {
-                  const parsed = JSON.parse(item);
-                  if (parsed.personalInfo || parsed.experiences) {
-                    clientFullContext = parsed;
-                    break;
-                  }
-                }
-              }
-            }
-          } catch {}
-        }
-      }
-
+      // The match route loads the owner-scoped resume itself from resumeId.
       const res = await fetch('/api/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           resumeId: targetResumeId,
           jdText: targetJdText,
-          candidateContext: clientFullContext,
         }),
       });
 

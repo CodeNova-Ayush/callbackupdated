@@ -222,18 +222,9 @@ export default function BuilderPage(props: { params: Promise<{ resumeId: string 
   // Auth Protection for Export / Download / Completion
   const { isSignedIn } = useAppAuth();
   const { user } = useAppUser();
-  const isUserAuthenticated = Boolean(
-    isSignedIn ||
-    (typeof window !== 'undefined' && localStorage.getItem('is_authenticated') === 'true')
-  );
+  const isUserAuthenticated = Boolean(isSignedIn);
 
-  const checkIsAuthenticated = () => {
-    if (isSignedIn) return true;
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('is_authenticated') === 'true';
-    }
-    return false;
-  };
+  const checkIsAuthenticated = () => isUserAuthenticated;
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalTitle, setAuthModalTitle] = useState<string>('Save Your Resume');
@@ -373,8 +364,8 @@ export default function BuilderPage(props: { params: Promise<{ resumeId: string 
 
   // 1. Load from Browser Local Storage or Database on mount
   useEffect(() => {
+    const load = async () => {
     let loadedFromLocal = false;
-    if (typeof window !== 'undefined') {
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const templateFromUrl = urlParams.get('template') as TemplateId | null;
@@ -382,9 +373,8 @@ export default function BuilderPage(props: { params: Promise<{ resumeId: string 
           setSelectedTemplate(templateFromUrl);
         }
 
-        let saved = localStorage.getItem('callback_ai_saved_resume_' + resumeId);
-        if (!saved) {
-          const storeItem = getResumeFromStore(resumeId);
+        let saved: string | null = null;
+        const storeItem = await getResumeFromStore(resumeId);
           if (storeItem?.parsedSections) {
             saved = JSON.stringify({
               personalInfo: storeItem.parsedSections.personalInfo,
@@ -395,7 +385,6 @@ export default function BuilderPage(props: { params: Promise<{ resumeId: string 
               selectedTemplate: storeItem.template || 'executive_slate',
             });
           }
-        }
 
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -443,7 +432,6 @@ export default function BuilderPage(props: { params: Promise<{ resumeId: string 
       } catch (e) {
         console.error('Error loading resume from local storage:', e);
       }
-    }
 
     // If not loaded from local storage, fetch from server API
     if (!loadedFromLocal) {
@@ -495,30 +483,41 @@ export default function BuilderPage(props: { params: Promise<{ resumeId: string 
         })
         .catch((err) => console.error('Builder resume fetch error:', err));
     }
+    };
+    load();
   }, [resumeId]);
 
   // 2. Auto-save to Browser Local Storage on edits
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const timer = setTimeout(() => {
-        try {
-          const payload = {
-            personalInfo,
-            experiences,
-            education,
-            projects,
-            skills,
-            selectedTemplate,
-            updatedAt: new Date().toISOString(),
-          };
-          localStorage.setItem('callback_ai_saved_resume_' + resumeId, JSON.stringify(payload));
-          setLastSavedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        } catch (e) {
-          console.error('Error saving to local storage:', e);
-        }
-      }, 600);
-      return () => clearTimeout(timer);
-    }
+    const timer = setTimeout(() => {
+      const candidateNameClean = personalInfo.fullName ? personalInfo.fullName.replace(/\s+/g, ' ') : 'Candidate';
+      saveResumeToStore({
+        id: resumeId,
+        title: `${candidateNameClean}'s Resume`,
+        candidateName: personalInfo.fullName || 'Candidate',
+        candidateTitle: experiences[0]?.role || 'Software Engineer',
+        candidateEmail: personalInfo.email || '',
+        candidatePhone: personalInfo.phone || '',
+        candidateLocation: personalInfo.location || '',
+        atsScore: 0,
+        trustScore: 0,
+        updatedAt: new Date().toISOString(),
+        isActive: true,
+        template: selectedTemplate,
+        parsedSections: {
+          personalInfo,
+          experience: experiences,
+          education,
+          projects,
+          skills,
+        },
+      }).then(() => {
+        setLastSavedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      }).catch((error) => {
+        console.error('Error saving resume:', error);
+      });
+    }, 600);
+    return () => clearTimeout(timer);
   }, [personalInfo, experiences, education, projects, skills, selectedTemplate, resumeId]);
 
   const sectionsList = [
@@ -724,28 +723,10 @@ ${skills.join(', ')}
     }
   };
 
-  const handleFinishResume = () => {
-    // 1. Force save to Local Storage & Global Client Resume Store
+  const handleFinishResume = async () => {
     const candidateNameClean = personalInfo.fullName ? personalInfo.fullName.replace(/\s+/g, ' ') : 'Candidate';
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(
-          'callback_ai_saved_resume_' + resumeId,
-          JSON.stringify({
-            personalInfo,
-            experiences,
-            education,
-            projects,
-            skills,
-            activeSection,
-            selectedTemplate,
-            zoomLevel,
-            savedAt: new Date().toISOString(),
-          })
-        );
-        localStorage.setItem('has_onboarded', 'true');
-        localStorage.setItem('active_resume_id', resumeId);
-        saveResumeToStore({
+    try {
+      await saveResumeToStore({
           id: resumeId,
           title: `${candidateNameClean}'s Resume`,
           candidateName: personalInfo.fullName || 'Candidate',
@@ -771,7 +752,6 @@ ${skills.join(', ')}
       } catch (e) {
         console.error('Failed to save resume locally:', e);
       }
-    }
 
     if (!isUserAuthenticated) {
       setAuthModalTitle('Save Your Resume');
@@ -815,27 +795,6 @@ ${skills.join(', ')}
       : 'Candidate';
     const fileName = `${cleanName}_Resume_ATS.pdf`;
 
-    // 1. Force save to Local Storage immediately
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(
-          'callback_ai_saved_resume_' + resumeId,
-          JSON.stringify({
-            personalInfo,
-            experiences,
-            education,
-            projects,
-            skills,
-            selectedTemplate,
-            updatedAt: new Date().toISOString(),
-          })
-        );
-        setLastSavedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-      } catch (e) {
-        console.error('Failed to save to local storage:', e);
-      }
-    }
-
     const printElement = document.getElementById('resume-export-sheet') || document.getElementById('resume-dedicated-export') || document.getElementById('resume-print-sheet');
     if (!printElement) {
       window.print();
@@ -843,41 +802,7 @@ ${skills.join(', ')}
       return;
     }
 
-    // 2. Try High-Fidelity Server-Side PDF Export (Puppeteer A4 Vector)
-    try {
-      const res = await fetch('/api/export-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          html: printElement.outerHTML,
-          title: cleanName,
-        }),
-      });
-
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/pdf')) {
-          const blob = await res.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-
-          setDownloadSuccessMsg(`✓ Successfully downloaded ${fileName} to your device!`);
-          setTimeout(() => setDownloadSuccessMsg(null), 5000);
-          setIsExportingPDF(false);
-          return;
-        }
-      }
-    } catch (serverErr) {
-      console.warn('Server PDF generation failed, falling back to client-side canvas:', serverErr);
-    }
-
-    // 3. Client-Side jsPDF Fallback (100% Reliable Single Page Download)
+    // Client-side PDF export
     try {
       if (typeof document !== 'undefined' && document.fonts) {
         await document.fonts.ready;
@@ -959,9 +884,7 @@ ${skills.join(', ')}
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      const isAuth =
-        isSignedIn || localStorage.getItem('is_authenticated') === 'true';
-      if (urlParams.get('auto_download') === 'true' && isAuth) {
+      if (urlParams.get('auto_download') === 'true' && isSignedIn) {
         window.history.replaceState({}, '', window.location.pathname);
         setTimeout(() => {
           handleExportPDF(true);

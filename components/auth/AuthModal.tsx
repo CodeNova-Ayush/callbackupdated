@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, X } from 'lucide-react';
 import { isRealClerkKey, useAppAuth } from './AuthProvider';
-import { SignIn, SignUp } from '@clerk/nextjs';
+import { auth_client } from '@/lib/auth-client';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,7 +20,7 @@ export function AuthModal({
   title,
   subtitle,
 }: AuthModalProps) {
-  const { login, isSignedIn } = useAppAuth();
+  const { isSignedIn } = useAppAuth();
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -42,41 +42,23 @@ export function AuthModal({
 
   if (!isOpen) return null;
 
-  const handleAuthenticate = (userIdentifier: string, name?: string) => {
+  const handleFormSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!emailOrUsername || !password) return;
     setIsSubmitting(true);
-    const finalName = name || (userIdentifier.includes('@') ? userIdentifier.split('@')[0] : userIdentifier).replace(/[._-]/g, ' ') || 'Candidate';
-    const capName = finalName.charAt(0).toUpperCase() + finalName.slice(1);
-    const email = userIdentifier.includes('@') ? userIdentifier : `${userIdentifier}@gmail.com`;
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('is_authenticated', 'true');
-      localStorage.setItem('user_name', capName);
-      localStorage.setItem('user_email', email);
-      document.cookie = 'callback_auth=1; path=/; max-age=2592000; SameSite=Lax';
-    }
-
-    if (login) {
-      try {
-        login(email, capName);
-      } catch (err) {
-        console.warn('Local login dispatch:', err);
-      }
-    }
-
-    setTimeout(() => {
-      setIsSubmitting(false);
-      onSuccess();
-    }, 250);
+    const result = isSignUpMode
+      ? await auth_client.signUp.email({
+          email: emailOrUsername,
+          password,
+          name: fullName || emailOrUsername.split('@')[0],
+        })
+      : await auth_client.signIn.email({ email: emailOrUsername, password });
+    setIsSubmitting(false);
+    if (!result.error) onSuccess();
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!emailOrUsername) return;
-    handleAuthenticate(emailOrUsername, isSignUpMode ? fullName : undefined);
-  };
-
-  const handleSocialClick = (provider: string) => {
-    handleAuthenticate(`${provider.toLowerCase()}.user@gmail.com`, `${provider} Verified User`);
+  const handleSocialClick = (_provider: string) => {
+    return;
   };
 
   return (
@@ -95,58 +77,6 @@ export function AuthModal({
           <X className="w-4 h-4" />
         </button>
 
-        {isRealClerkKey ? (
-          /* Real Clerk Interactive Authentication */
-          <div className="w-full flex flex-col items-center pt-2">
-            <div className="text-center mb-3">
-              <h2 className="text-xl font-extrabold text-[#1C152E] tracking-tight">
-                {title || 'Authentication Required'}
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                {subtitle || 'Sign in or create an account to save and export your resume.'}
-              </p>
-            </div>
-            <div className="w-full flex justify-center">
-              {(() => {
-                const currentRedirectUrl = typeof window !== 'undefined'
-                  ? `${window.location.pathname}${window.location.search ? (window.location.search.includes('auto_download') ? window.location.search : `${window.location.search}&auto_download=true`) : '?auto_download=true'}`
-                  : '/dashboard';
-
-                return isSignUpMode ? (
-                  <SignUp
-                    routing="hash"
-                    forceRedirectUrl={currentRedirectUrl}
-                    fallbackRedirectUrl={currentRedirectUrl}
-                    appearance={{
-                      elements: {
-                        cardBox: 'shadow-none border-none p-0 w-full',
-                        headerTitle: 'hidden',
-                        headerSubtitle: 'hidden',
-                        footerActionLink: 'text-[#FF4B5E] hover:text-[#E62A55] font-bold',
-                        formButtonPrimary: 'bg-[#1C152E] hover:bg-[#2B1F45] text-white font-bold rounded-full',
-                      },
-                    }}
-                  />
-                ) : (
-                  <SignIn
-                    routing="hash"
-                    forceRedirectUrl={currentRedirectUrl}
-                    fallbackRedirectUrl={currentRedirectUrl}
-                    appearance={{
-                      elements: {
-                        cardBox: 'shadow-none border-none p-0 w-full',
-                        headerTitle: 'hidden',
-                        headerSubtitle: 'hidden',
-                        footerActionLink: 'text-[#FF4B5E] hover:text-[#E62A55] font-bold',
-                        formButtonPrimary: 'bg-[#1C152E] hover:bg-[#2B1F45] text-white font-bold rounded-full',
-                      },
-                    }}
-                  />
-                );
-              })()}
-            </div>
-          </div>
-        ) : (
           /* Fallback Local Form */
           <>
             <div className="text-left pr-6">
@@ -244,7 +174,6 @@ export function AuthModal({
               </button>
             </div>
           </>
-        )}
       </div>
     </div>
   );

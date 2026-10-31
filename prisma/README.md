@@ -6,8 +6,7 @@ Prisma owns database schema and seed data.
 
 ```bash
 npx prisma generate
-npx prisma db push
-npm run seed
+npx prisma migrate deploy
 ```
 
 Run `npx prisma generate` whenever the schema changes.

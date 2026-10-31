@@ -17,7 +17,6 @@
 
 import { db } from '@/lib/db';
 import { ATSAnalysisOutput } from '@/lib/services/ats-service';
-import { saveResumeToMemory } from '@/lib/services/resume-service';
 import { executeMultiProviderLLM } from '@/lib/services/llm-provider';
 
 export interface ImportedResumeResult {
@@ -43,6 +42,7 @@ export interface ImportedResumeResult {
 }
 
 export async function parseAndImportOldResume(
+  userId: string,
   rawText: string,
   customTitle?: string,
   fileName?: string
@@ -295,17 +295,8 @@ Return ONLY pure JSON matching this exact schema:
     title: extractedTitle,
   };
 
-  const finalTitle = `${extractedName} — ${extractedTitle}`;
-  let userId = 'demo-user-alex';
-  let resumeId = `imported-${Date.now()}`;
-
-  // 5. Try to find user from DB
-  try {
-    const user = await db.user.findFirst();
-    if (user?.id) userId = user.id;
-  } catch (e) {
-    console.warn('Database query user.findFirst note:', e);
-  }
+  const finalTitle = customTitle || `${extractedName} — ${extractedTitle}`;
+  let resumeId = '';
 
   const sectionDefs = [
     { id: `sec-pi-${Date.now()}`, sectionType: 'personal_info', order: 0, content: personalInfo },
@@ -380,44 +371,9 @@ Return ONLY pure JSON matching this exact schema:
       }
     }
   } catch (dbErr) {
-    console.warn('Database write note (operating with in-memory parsed state):', dbErr);
+    console.error('Failed to persist imported resume:', dbErr);
+    throw new Error('IMPORT_FAILED');
   }
-
-  // 7. Always save full structured resume in memory cache so all pages immediately work
-  const memoryRecord = {
-    id: resumeId,
-    userId,
-    title: finalTitle,
-    isActive: true,
-    sections: sectionDefs.map((s) => ({
-      id: s.id,
-      resumeId,
-      sectionType: s.sectionType,
-      order: s.order,
-      content: JSON.stringify(s.content),
-    })),
-    analysisResults: [
-      {
-        atsScore,
-        readabilityScore: 94,
-        overallStrengthScore: Math.round(atsScore * 0.98),
-        formattingIssuesJson: JSON.stringify(formattingIssues),
-        missingSectionsJson: JSON.stringify(missingSections),
-        grammarIssuesJson: JSON.stringify(grammarIssues),
-      },
-    ],
-    verificationClaims: parsedExperiences.slice(0, 2).map((exp, idx) => ({
-      id: `claim-${idx + 1}`,
-      resumeId,
-      claimText: exp.bullets?.[0] || 'Verified engineering deliverable',
-      status: 'verified',
-      evidenceSource: `${exp.company} Verified Record`,
-      confidenceNote: 'Extracted and verified from candidate career history',
-      specificityScore: 98,
-    })),
-  };
-
-  saveResumeToMemory(memoryRecord);
 
   return {
     resumeId,

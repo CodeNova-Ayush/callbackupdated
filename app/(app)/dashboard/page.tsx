@@ -34,79 +34,33 @@ export default function DashboardPage() {
   const [resumes, setResumes] = useState<any[]>([]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hasOnboarded = localStorage.getItem('has_onboarded') === 'true';
-      const activeResume = localStorage.getItem('active_resume_id');
-      const stored = getStoredResumes();
-      if (!hasOnboarded && !activeResume && stored.length === 0) {
-        router.replace('/welcome');
-        return;
-      }
-    }
-
-    const localStored = getStoredResumes().map((r) => ({
-      id: r.id,
-      title: r.title,
-      updatedAt: r.updatedAt || 'Recently updated',
-      atsScore: r.atsScore || 96,
-      trustScore: r.trustScore || 98,
-      isActive: r.isActive,
-      template: r.template || 'Executive Two-Column',
-    }));
-
-    if (localStored.length > 0) {
-      setResumes(localStored);
-    }
-
-    fetch('/api/resumes')
-      .then((res) => res.json())
-      .then((data) => {
-        const serverList = Array.isArray(data.resumes) ? data.resumes : [];
-        const map = new Map<string, any>();
-        for (const lr of localStored) map.set(lr.id, lr);
-        for (const r of serverList) {
-          // If we have user-uploaded resumes, don't show the dummy Alex Rivera resume
-          if (localStored.length > 0 && r.id === 'demo-resume-alex-1') continue;
-          if (!map.has(r.id)) map.set(r.id, r);
-        }
-
-        if (map.size > 0) {
-          setResumes(Array.from(map.values()));
-        } else {
-          setResumes([
-            {
-              id: 'demo-resume-alex-1',
-              title: 'Alex Rivera — Staff AI Engineer & Systems Architect',
-              updatedAt: 'Recently updated',
-              atsScore: 99,
-              trustScore: 98,
-              isActive: true,
-              template: 'Executive Two-Column',
-            },
-          ]);
-        }
+    getStoredResumes()
+      .then((stored) => {
+        setResumes(stored.map((item) => ({
+          id: item.id,
+          title: item.title,
+          updatedAt: item.updatedAt || 'Recently updated',
+          atsScore: item.atsScore || 0,
+          trustScore: item.trustScore || 0,
+          isActive: item.isActive,
+          template: item.template || 'classic_ats',
+        })));
       })
-      .catch(() => {
-        if (localStored.length > 0) setResumes(localStored);
-      });
+      .catch(() => setResumes([]));
   }, []);
 
-  const handleCreateResume = () => {
+  const handleCreateResume = async () => {
     if (!newResumeTitle.trim()) return;
-    const newId = `resume-${Date.now()}`;
-    const newRes = {
-      id: newId,
-      title: newResumeTitle,
-      updatedAt: 'Just now',
-      atsScore: 90,
-      trustScore: 85,
-      isActive: false,
-      template: selectedTemplate,
-    };
-    setResumes([newRes, ...resumes]);
+    const response = await fetch('/api/resumes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newResumeTitle, template: selectedTemplate }),
+    });
+    if (!response.ok) return;
+    const data = await response.json();
     setIsCreateModalOpen(false);
     setNewResumeTitle('');
-    router.push(`/builder/${newId}`);
+    router.push(`/builder/${data.id}`);
   };
 
   return (

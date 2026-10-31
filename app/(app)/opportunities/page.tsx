@@ -87,26 +87,11 @@ export default function OpportunitiesPage() {
   const router = useRouter();
 
   // State
-  const [candidateName, setCandidateName] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const active = getActiveStoredResume();
-      if (active?.candidateName) return active.candidateName;
-      const stored = localStorage.getItem('active_candidate_name');
-      if (stored && stored !== 'Alex Rivera') return stored;
-    }
-    return 'Candidate Profile';
-  });
+  const [candidateName, setCandidateName] = useState('Candidate Profile');
   const [candidateTitle, setCandidateTitle] = useState('Senior Full-Stack & AI Systems Engineer');
   const [baseSummary, setBaseSummary] = useState('');
   const [allResumes, setAllResumes] = useState<{ id: string; title: string }[]>([]);
-  const [activeResumeId, setActiveResumeId] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const active = getActiveStoredResume();
-      if (active?.id) return active.id;
-      return localStorage.getItem('active_resume_id') || 'demo-resume-alex-1';
-    }
-    return 'demo-resume-alex-1';
-  });
+  const [activeResumeId, setActiveResumeId] = useState('');
 
   // Tailoring Modal State
   const [selectedPosting, setSelectedPosting] = useState<JobOpportunity | null>(null);
@@ -124,57 +109,23 @@ export default function OpportunitiesPage() {
 
   // Load Resumes
   useEffect(() => {
-    const localResumes = getStoredResumes().map((r) => ({ id: r.id, title: r.title }));
-    const activeStored = getActiveStoredResume();
-
-    if (activeStored) {
-      setActiveResumeId(activeStored.id);
-      setCandidateName(activeStored.candidateName);
-      setCandidateTitle(activeStored.candidateTitle);
-      setBaseSummary(activeStored.parsedSections.personalInfo?.summary || `${activeStored.candidateName} is an experienced technology professional.`);
-    }
-
-    fetch('/api/resumes')
-      .then((res) => res.json())
-      .then((data) => {
-        const serverList = Array.isArray(data.resumes) ? data.resumes : [];
-        const map = new Map<string, any>();
-        for (const lr of localResumes) map.set(lr.id, lr);
-        for (const r of serverList) map.set(r.id, r);
-
-        const merged = Array.from(map.values());
-        if (merged.length > 0) {
-          setAllResumes(merged);
-          if (!activeStored) {
-            const stored = typeof window !== 'undefined' ? localStorage.getItem('active_resume_id') : null;
-            const target = stored && merged.some((r: any) => r.id === stored) ? stored : merged[0].id;
-            setActiveResumeId(target);
-          }
-        }
-      })
-      .catch(() => {
-        if (localResumes.length > 0) setAllResumes(localResumes);
-      });
+    const load = async () => {
+      const stored = await getStoredResumes();
+      const activeStored = await getActiveStoredResume();
+      setAllResumes(stored.map((item) => ({ id: item.id, title: item.title })));
+      const target = activeStored || stored[0];
+      if (!target) return;
+      setActiveResumeId(target.id);
+      setCandidateName(target.candidateName);
+      setCandidateTitle(target.candidateTitle);
+      setBaseSummary(target.parsedSections.personalInfo?.summary || `${target.candidateName} is an experienced technology professional.`);
+    };
+    load();
   }, []);
 
   // Load Active Resume Data
   useEffect(() => {
     if (!activeResumeId) return;
-
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('callback_ai_saved_resume_' + activeResumeId);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.personalInfo?.fullName) {
-            setCandidateName(parsed.personalInfo.fullName);
-            setCandidateTitle(parsed.personalInfo.title || 'Senior Software Engineer');
-            setBaseSummary(parsed.personalInfo.summary || `${parsed.personalInfo.fullName} is an experienced technology professional.`);
-            return;
-          }
-        }
-      } catch (e) {}
-    }
 
     fetch(`/api/resumes/${activeResumeId}`)
       .then((res) => res.json())

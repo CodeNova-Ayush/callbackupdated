@@ -1,63 +1,45 @@
 'use client';
 
-import { SignIn } from '@clerk/nextjs';
 import { Logo } from '@/components/ui/Logo';
 import { ArrowRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
-
-import { isRealClerkKey } from '@/components/auth/AuthProvider';
-
-const hasClerkKey = isRealClerkKey;
+import { auth_client } from '@/lib/auth-client';
 
 function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get('redirect_url') || searchParams.get('return_to');
   
-  // Smart dynamic return: explicitly passed url -> active resume builder -> dashboard
-  let redirectUrl = rawRedirect || '';
-  if (!redirectUrl && typeof window !== 'undefined') {
-    const activeId = localStorage.getItem('active_resume_id') || localStorage.getItem('callback_active_resume_id');
-    if (activeId) {
-      redirectUrl = `/builder/${activeId}`;
-    } else {
-      redirectUrl = '/dashboard';
-    }
-  }
-  if (!redirectUrl) redirectUrl = '/dashboard';
-
+  const redirectUrl = rawRedirect || '/dashboard';
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [formError, setFormError] = useState('');
 
-  const authenticateAndProceed = (userIdentifier: string, name?: string) => {
-    const finalName = name || userIdentifier.split('@')[0].replace(/[._-]/g, ' ') || 'Candidate';
-    document.cookie = 'callback_auth=1; path=/; max-age=2592000; SameSite=Lax';
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('is_authenticated', 'true');
-      localStorage.setItem('user_name', finalName.charAt(0).toUpperCase() + finalName.slice(1));
-      localStorage.setItem('user_email', userIdentifier.includes('@') ? userIdentifier : `${userIdentifier}@candidate.ai`);
+  const handleAuthSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!emailOrUsername || !password) return;
+    setIsSubmitting(true);
+    setFormError('');
+    const result = isSignUpMode
+      ? await auth_client.signUp.email({
+          email: emailOrUsername,
+          password,
+          name: fullName || emailOrUsername.split('@')[0],
+        })
+      : await auth_client.signIn.email({
+          email: emailOrUsername,
+          password,
+        });
+    setIsSubmitting(false);
+    if (result.error) {
+      setFormError(result.error.message || 'Authentication failed');
+      return;
     }
     router.push(redirectUrl);
-  };
-
-  const handleAuthSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!emailOrUsername) return;
-    setIsSubmitting(true);
-    setTimeout(() => {
-      authenticateAndProceed(emailOrUsername, fullName);
-    }, 400);
-  };
-
-  const handleSocialLogin = (provider: string) => {
-    setIsSubmitting(true);
-    setTimeout(() => {
-      authenticateAndProceed(`${provider.toLowerCase()}_user@candidate.ai`, `${provider} Verified User`);
-    }, 400);
   };
 
   return (
@@ -70,30 +52,7 @@ function SignInContent() {
       <div className="w-full max-w-md flex flex-col items-center gap-6 relative z-10">
         <Logo size="lg" showTagline />
 
-        {hasClerkKey ? (
-          /* Real Clerk Authentication Embed */
-          <div className="w-full flex justify-center">
-            <SignIn
-              routing="path"
-              path="/sign-in"
-              signUpUrl={`/sign-up${redirectUrl ? `?redirect_url=${encodeURIComponent(redirectUrl)}` : ''}`}
-              forceRedirectUrl={redirectUrl}
-              fallbackRedirectUrl={redirectUrl}
-              appearance={{
-                elements: {
-                  cardBox: 'shadow-xl border border-slate-200/80 rounded-2xl bg-white w-full',
-                  headerTitle: 'text-slate-900 font-extrabold',
-                  headerSubtitle: 'text-slate-500 text-xs',
-                  footerActionLink: 'text-[#FF4B5E] hover:text-[#E62A55] font-bold',
-                  formButtonPrimary: 'bg-[#1C152E] hover:bg-[#2B1F45] text-white font-bold rounded-full shadow-xs',
-                  socialButtonsBlockButton: 'border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-full',
-                },
-              }}
-            />
-          </div>
-        ) : (
-          /* Clean Authentication Card */
-          <div className="w-full bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-8 shadow-xl shadow-slate-200/50 flex flex-col gap-4">
+        <div className="w-full bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-8 shadow-xl shadow-slate-200/50 flex flex-col gap-4">
             <div className="flex flex-col text-left">
               <h2 className="text-2xl font-extrabold text-[#1C152E] tracking-tight">
                 {isSignUpMode ? 'Create your account' : 'Welcome back'}
@@ -109,7 +68,7 @@ function SignInContent() {
             <div>
               <button
                 type="button"
-                onClick={() => handleSocialLogin('Google')}
+                onClick={() => setFormError('Email and password are the sign-in method.')}
                 disabled={isSubmitting}
                 className="w-full h-11 px-4 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-full text-xs font-semibold text-slate-700 flex items-center justify-center gap-2.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer disabled:opacity-60"
               >
@@ -131,6 +90,7 @@ function SignInContent() {
             </div>
 
             {/* Credentials Form */}
+            {formError ? <p className="text-xs text-rose-600">{formError}</p> : null}
             <form onSubmit={handleAuthSubmit} className="flex flex-col gap-3">
               {isSignUpMode && (
                 <div>
@@ -187,7 +147,6 @@ function SignInContent() {
               </button>
             </div>
           </div>
-        )}
       </div>
     </main>
   );
