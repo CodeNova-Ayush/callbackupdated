@@ -77,7 +77,7 @@ export function AuthModal({
           <X className="w-4 h-4" />
         </button>
 
-          /* Fallback Local Form */
+          {/* Fallback Local Form */}
           <>
             <div className="text-left pr-6">
               <h2 className="text-xl font-extrabold text-[#1C152E] tracking-tight">

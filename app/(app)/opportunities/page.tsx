@@ -26,6 +26,14 @@ import { Button } from '@/components/ui/Button';
 import { Card, Badge, ProgressRing } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Input';
+import type { MatchedKeywordItem, TailoringRecommendationItem } from '@/lib/services/jd-match-service';
+
+interface TailoredSnapshot {
+  fitScore: number;
+  tailoredSummary: string;
+  diffHighlights: string[];
+  matchedSkills: Array<string | MatchedKeywordItem>;
+}
 
 interface JobOpportunity {
   id: string;
@@ -97,7 +105,7 @@ export default function OpportunitiesPage() {
   const [selectedPosting, setSelectedPosting] = useState<JobOpportunity | null>(null);
   const [isTailorModalOpen, setIsTailorModalOpen] = useState(false);
   const [isGeneratingTailor, setIsGeneratingTailor] = useState(false);
-  const [tailoredData, setTailoredData] = useState<any>(null);
+  const [tailoredData, setTailoredData] = useState<TailoredSnapshot | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
   // Custom Job Post Modal
@@ -131,7 +139,7 @@ export default function OpportunitiesPage() {
       .then((res) => res.json())
       .then((data) => {
         if (data.resume) {
-          const pi = data.resume.sections?.find((s: any) => s.sectionType === 'personal_info');
+          const pi = data.resume.sections?.find((s: { sectionType: string; content: unknown }) => s.sectionType === 'personal_info');
           let name = 'Candidate';
           let title = 'Software Engineer';
           let summary = '';
@@ -177,7 +185,7 @@ export default function OpportunitiesPage() {
         setTailoredData({
           fitScore: data.match.matchPercentage || posting.fitScore,
           tailoredSummary: `${candidateName} is a high-conviction ${posting.title} specializing in ${posting.requiredSkills.slice(0, 3).join(', ')}. Demonstrated production track record accelerating engineering velocity and delivering robust scalable architectures.`,
-          diffHighlights: (data.match.tailoringRecommendations || []).map((t: any) => `${t.reason || 'Strategic Alignment'}: "${t.tailoredRewrite || ''}"`),
+          diffHighlights: (data.match.tailoringRecommendations || []).map((t: Partial<TailoringRecommendationItem>) => `${t.reason || 'Strategic Alignment'}: "${t.tailoredRewrite || ''}"`),
           matchedSkills: data.match.matchedKeywords || posting.requiredSkills,
         });
       }
@@ -210,7 +218,7 @@ export default function OpportunitiesPage() {
 
   const handleCopyTailoredDraft = () => {
     if (!tailoredData || !selectedPosting) return;
-    const text = `TAILORED APPLICATION SNAPSHOT — ${selectedPosting.company}\n\nPosition: ${selectedPosting.title}\nCandidate: ${candidateName}\n\nTAILORED PROFESSIONAL SUMMARY:\n${tailoredData.tailoredSummary}\n\nSTRATEGIC ATS BULLET REWRITES:\n${tailoredData.diffHighlights.map((h: string, idx: number) => `${idx + 1}. ${h}`).join('\n')}\n\nMATCHED KEYWORDS:\n${tailoredData.matchedSkills.join(', ')}`;
+    const text = `TAILORED APPLICATION SNAPSHOT — ${selectedPosting.company}\n\nPosition: ${selectedPosting.title}\nCandidate: ${candidateName}\n\nTAILORED PROFESSIONAL SUMMARY:\n${tailoredData.tailoredSummary}\n\nSTRATEGIC ATS BULLET REWRITES:\n${tailoredData.diffHighlights.map((h: string, idx: number) => `${idx + 1}. ${h}`).join('\n')}\n\nMATCHED KEYWORDS:\n${tailoredData.matchedSkills.map((k) => (typeof k === 'string' ? k : k.name)).join(', ')}`;
     navigator.clipboard.writeText(text);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);

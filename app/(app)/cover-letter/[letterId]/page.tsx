@@ -45,6 +45,18 @@ import {
 import { useAppAuth, useAppUser } from '@/components/auth/AuthProvider';
 import { AuthModal } from '@/components/auth/AuthModal';
 
+type SpeechRecognitionResultEventLike = { results: ArrayLike<ArrayLike<{ transcript: string }>> };
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionResultEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+};
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
 export default function CoverLetterEditorPage() {
   const params = useParams();
   const router = useRouter();
@@ -133,8 +145,11 @@ export default function CoverLetterEditorPage() {
   const handleVoiceToText = (target: number | 'prompt') => {
     if (typeof window === 'undefined') return;
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechWindow = window as unknown as {
+      SpeechRecognition?: SpeechRecognitionCtor;
+      webkitSpeechRecognition?: SpeechRecognitionCtor;
+    };
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       alert('Voice dictation is supported in Chrome, Safari, Edge, and modern browsers.');
@@ -153,7 +168,7 @@ export default function CoverLetterEditorPage() {
         setListeningIndex(target);
       }
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: SpeechRecognitionResultEventLike) => {
         const transcript = event.results[0][0].transcript;
         if (target === 'prompt') {
           setAiRole((prev) => (prev ? `${prev} ${transcript}` : transcript));
@@ -210,20 +225,9 @@ export default function CoverLetterEditorPage() {
     { name: 'Graphite', hex: '#334155' },
   ];
 
-  if (!letterData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex items-center gap-3 text-slate-500 font-medium text-sm">
-          <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
-          <span>Loading cover letter...</span>
-        </div>
-      </div>
-    );
-  }
-
   // Active Template
   const activeTemplateMeta =
-    FLOWCV_COVER_LETTER_TEMPLATES.find((t) => t.id === letterData.templateId) ||
+    FLOWCV_COVER_LETTER_TEMPLATES.find((t) => t.id === letterData?.templateId) ||
     FLOWCV_COVER_LETTER_TEMPLATES[0];
 
   // AI Generate Handler
@@ -375,6 +379,17 @@ export default function CoverLetterEditorPage() {
       }
     }
   }, [isSignedIn]);
+
+  if (!letterData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex items-center gap-3 text-slate-500 font-medium text-sm">
+          <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+          <span>Loading cover letter...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F4F4F6] text-slate-900 flex flex-col">

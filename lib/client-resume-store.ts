@@ -1,3 +1,63 @@
+// Section shapes kept loose on purpose: imports, the builder, and older local saves all write them.
+export interface StoredPersonalInfo {
+  fullName?: string;
+  title?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  linkedin?: string;
+  github?: string;
+  website?: string;
+  summary?: string;
+  [key: string]: unknown;
+}
+
+export interface StoredExperienceItem {
+  id?: string;
+  role?: string;
+  company?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  bullets?: string[];
+  [key: string]: unknown;
+}
+
+export interface StoredEducationItem {
+  id?: string;
+  institution?: string;
+  degree?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  gpa?: string;
+  [key: string]: unknown;
+}
+
+export interface StoredProjectItem {
+  id?: string;
+  title?: string;
+  techStack?: string;
+  link?: string;
+  bullets?: string[];
+  [key: string]: unknown;
+}
+
+// Server or API resume record accepted by to_stored_resume.
+export interface StoredResumeSource {
+  id: string;
+  title: string;
+  sections?: { sectionType: string; content: string }[];
+  candidateName?: string;
+  candidateTitle?: string;
+  atsScore?: number;
+  analysisResults?: { atsScore?: number }[];
+  trustScore?: number;
+  updatedAt?: string;
+  isActive?: boolean;
+  template?: string;
+}
+
 export interface StoredResumeItem {
   id: string;
   title: string;
@@ -12,10 +72,10 @@ export interface StoredResumeItem {
   isActive: boolean;
   template?: string;
   parsedSections: {
-    personalInfo: any;
-    experience: any[];
-    education: any[];
-    projects: any[];
+    personalInfo: StoredPersonalInfo;
+    experience: StoredExperienceItem[];
+    education: StoredEducationItem[];
+    projects: StoredProjectItem[];
     skills: string[];
     certifications?: string[];
   };
@@ -31,7 +91,7 @@ const parse_section = (sections: { sectionType: string; content: string }[] | un
   }
 };
 
-export const to_stored_resume = (resume: any): StoredResumeItem => {
+export const to_stored_resume = (resume: StoredResumeSource): StoredResumeItem => {
   const sections = resume.sections || [];
   const personal = parse_section(sections, 'personal_info') || {};
   const experience = parse_section(sections, 'experience');

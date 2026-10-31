@@ -1,7 +1,49 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import { Mic, MicOff, Volume2, VolumeX, Sparkles, Loader2 } from 'lucide-react';
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: { transcript: string };
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
+function getSpeechRecognitionCtor(): SpeechRecognitionCtor | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const w = window as Window & {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  };
+  return w.SpeechRecognition || w.webkitSpeechRecognition;
+}
+
+// Browser capability never changes at runtime, so the store has nothing to subscribe to.
+const noopSubscribe = () => () => {};
+const getSpeechSupportSnapshot = () => Boolean(getSpeechRecognitionCtor());
+const getSpeechSupportServerSnapshot = () => true;
 
 interface VoiceDictationButtonProps {
   onTranscript: (text: string) => void;
@@ -26,18 +68,12 @@ export function VoiceDictationButton({
 }: VoiceDictationButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState('');
-  const [isSupported, setIsSupported] = useState(true);
-  const recognitionRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        setIsSupported(false);
-      }
-    }
-  }, []);
+  const isSupported = useSyncExternalStore(
+    noopSubscribe,
+    getSpeechSupportSnapshot,
+    getSpeechSupportServerSnapshot
+  );
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   const stopListening = () => {
     if (recognitionRef.current) {
@@ -52,8 +88,7 @@ export function VoiceDictationButton({
 
   const startListening = () => {
     if (typeof window === 'undefined') return;
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognitionCtor();
 
     if (!SpeechRecognition) {
       alert('Voice dictation is supported on Chrome, Safari, and Edge. Please check your browser permissions.');
@@ -73,7 +108,7 @@ export function VoiceDictationButton({
         setInterimText('');
       };
 
-      reco.onresult = (event: any) => {
+      reco.onresult = (event: SpeechRecognitionEventLike) => {
         let interim = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcriptChunk = event.results[i][0].transcript;
@@ -94,7 +129,7 @@ export function VoiceDictationButton({
         setInterimText(interim);
       };
 
-      reco.onerror = (err: any) => {
+      reco.onerror = (err: SpeechRecognitionErrorEventLike) => {
         console.warn('Speech recognition event:', err);
         if (err.error !== 'no-speech') {
           stopListening();

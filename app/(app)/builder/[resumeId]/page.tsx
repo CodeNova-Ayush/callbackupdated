@@ -442,11 +442,11 @@ export default function BuilderPage(props: { params: Promise<{ resumeId: string 
             setSelectedTemplate(data.resume.template as TemplateId);
           }
           if (data.resume?.sections) {
-            const pi = data.resume.sections.find((s: any) => s.sectionType === 'personal_info');
-            const exp = data.resume.sections.find((s: any) => s.sectionType === 'experience');
-            const edu = data.resume.sections.find((s: any) => s.sectionType === 'education');
-            const proj = data.resume.sections.find((s: any) => s.sectionType === 'projects');
-            const sk = data.resume.sections.find((s: any) => s.sectionType === 'skills');
+            const pi = data.resume.sections.find((s: { sectionType: string }) => s.sectionType === 'personal_info');
+            const exp = data.resume.sections.find((s: { sectionType: string }) => s.sectionType === 'experience');
+            const edu = data.resume.sections.find((s: { sectionType: string }) => s.sectionType === 'education');
+            const proj = data.resume.sections.find((s: { sectionType: string }) => s.sectionType === 'projects');
+            const sk = data.resume.sections.find((s: { sectionType: string }) => s.sectionType === 'skills');
 
             if (pi) {
               try {
@@ -2401,16 +2401,16 @@ ${skills.join(', ')}
             <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
               {/* Preview Scale Zoom Bar */}
               <div className="flex items-center bg-slate-100 p-1 rounded-full border border-slate-200/90 mr-1">
-                {[
+                {([
                   { label: 'Fit', value: 'fit' },
                   { label: '50%', value: 50 },
                   { label: '75%', value: 75 },
                   { label: '100%', value: 100 },
-                ].map((z) => (
+                ] as { label: string; value: number | 'fit' }[]).map((z) => (
                   <button
                     key={String(z.value)}
                     type="button"
-                    onClick={() => setPreviewModalZoom(z.value as any)}
+                    onClick={() => setPreviewModalZoom(z.value)}
                     className={`px-3 py-1 text-xs font-semibold rounded-full transition-all cursor-pointer ${
                       previewModalZoom === z.value
                         ? 'bg-white text-slate-900 shadow-2xs font-bold'

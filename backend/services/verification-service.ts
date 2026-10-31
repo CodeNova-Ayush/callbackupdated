@@ -38,12 +38,34 @@ export interface ClaimVerificationResult {
   }[];
 }
 
+// Section shapes as stored in ResumeSection.content JSON. Fields are optional because imports vary.
+interface VerificationExperience {
+  role?: string;
+  company?: string;
+  bullets?: string[];
+}
+
+interface VerificationEducation {
+  degree?: string;
+  institution?: string;
+  startDate?: string;
+  endDate?: string;
+  gpa?: string;
+}
+
+interface VerificationProject {
+  title?: string;
+  techStack?: string;
+  link?: string;
+  bullets?: string[];
+}
+
 export async function verifyResumeClaims(userId: string, resumeId: string): Promise<ClaimVerificationResult> {
   let candidateName = 'Alex Rivera';
   let candidateTitle = 'Senior Full-Stack & AI Systems Architect';
-  let experiences: any[] = [];
-  let education: any[] = [];
-  let projects: any[] = [];
+  let experiences: VerificationExperience[] = [];
+  let education: VerificationEducation[] = [];
+  let projects: VerificationProject[] = [];
   let skills: string[] = [];
   let certifications: string[] = [];
 
@@ -64,7 +86,7 @@ export async function verifyResumeClaims(userId: string, resumeId: string): Prom
             if (Array.isArray(parsed)) projects = parsed;
           } else if (s.sectionType === 'skills') {
             if (Array.isArray(parsed)) skills = parsed;
-            else if (parsed?.categories) skills = parsed.categories.flatMap((c: any) => c.items || []);
+            else if (parsed?.categories) skills = parsed.categories.flatMap((c: { items?: string[] }) => c.items || []);
           } else if (s.sectionType === 'certifications') {
             if (Array.isArray(parsed)) certifications = parsed;
           }

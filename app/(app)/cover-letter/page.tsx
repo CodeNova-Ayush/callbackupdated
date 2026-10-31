@@ -320,7 +320,7 @@ export default function CoverLetterDashboardPage() {
               <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <h3 className="text-base font-bold text-slate-800">No templates found</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Try searching for something else like "classic", "split", or "minimal".
+                Try searching for something else like &quot;classic&quot;, &quot;split&quot;, or &quot;minimal&quot;.
               </p>
               <button
                 onClick={() => {

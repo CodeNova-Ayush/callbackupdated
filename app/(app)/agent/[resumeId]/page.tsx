@@ -41,6 +41,12 @@ import { AgentLoadingState } from '@/components/agent/AgentLoadingState';
 
 import { getStoredResumes, getActiveStoredResume } from '@/lib/client-resume-store';
 
+type CandidatePersonalInfo = { fullName?: string; title?: string; summary?: string };
+type CandidateExperienceEntry = { role?: string; company?: string };
+
+// Message ids are generated in event handlers only; kept outside the component body.
+const makeMessageId = (prefix: string) => `${prefix}-${Date.now()}`;
+
 export default function AgentPage() {
   const router = useRouter();
   const routeParams = useParams();
@@ -80,7 +86,8 @@ export default function AgentPage() {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  const applyCandidateState = (pi: any, expList: any[], skList: any[], defaultTitle?: string, resumeTitle?: string) => {
+  const applyCandidateState = (piInput: unknown, expList: unknown[], skList: unknown[], defaultTitle?: string, resumeTitle?: string) => {
+    const pi = (piInput && typeof piInput === 'object' ? piInput : undefined) as CandidatePersonalInfo | undefined;
     let name = pi?.fullName;
     if (!name || name === 'Candidate' || name === 'Alex Rivera') {
       if (resumeTitle && resumeTitle.includes('—')) {
@@ -102,15 +109,15 @@ export default function AgentPage() {
       }
     }
     if ((!title || title === 'Software Engineer & AI Builder') && expList && expList.length > 0) {
-      const topExp = expList[0];
+      const topExp = expList[0] as CandidateExperienceEntry | null | undefined;
       if (topExp?.role) {
         title = `${topExp.role}${topExp.company ? ` (${topExp.company})` : ''}`;
       }
     }
     if (!title) title = defaultTitle || 'Senior Software Engineer & AI Builder';
 
-    let summary = pi?.summary || '';
-    let skillsList: string[] = Array.isArray(skList) ? skList : [];
+    const summary = pi?.summary || '';
+    const skillsList: string[] = Array.isArray(skList) ? (skList as string[]) : [];
 
     setCandidateName(name);
     setCandidateTitle(title);
@@ -207,7 +214,7 @@ export default function AgentPage() {
     if (!q.trim() || isLoading) return;
 
     const userMsg: ChatMessage = {
-      id: `u-${Date.now()}`,
+      id: makeMessageId('u'),
       role: 'user',
       content: q,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -230,7 +237,7 @@ export default function AgentPage() {
       };
 
       const botMsg: ChatMessage = {
-        id: `b-${Date.now()}`,
+        id: makeMessageId('b'),
         role: 'assistant',
         content: answerObj.reply,
         citedSources: answerObj.citedSources,
@@ -240,7 +247,7 @@ export default function AgentPage() {
     } catch (err) {
       console.error('Agent chat error:', err);
       const fallbackMsg: ChatMessage = {
-        id: `b-${Date.now()}`,
+        id: makeMessageId('b'),
         role: 'assistant',
         content: `I am ${candidateName}'s Living Candidate Agent. ${candidateName} is verified in distributed systems, full-stack web architectures, and modern AI pipelines.`,
         citedSources: [{ sectionTitle: 'Experience Summary', snippet: candidateTitle }],
@@ -463,7 +470,7 @@ export default function AgentPage() {
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-black text-slate-900">
-                    {candidateName}'s Agent
+                    {candidateName}&apos;s Agent
                   </h2>
                   <span className="text-[9px] font-black uppercase text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Grounded Agent

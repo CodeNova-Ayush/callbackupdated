@@ -39,7 +39,7 @@ export const AgentLoadingState: React.FC<AgentLoadingStateProps> = ({
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-1.5 text-[#FF4B5E] font-black text-[11px] uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5 animate-spin" />
-            <span>{candidateName}'s Agent Thinking</span>
+            <span>{candidateName}&apos;s Agent Thinking</span>
           </div>
           <span className="text-slate-500 text-[11.5px] font-medium">{statusText}</span>
         </div>

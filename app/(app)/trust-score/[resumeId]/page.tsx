@@ -41,36 +41,38 @@ export default function TrustScorePage() {
   const [copiedClaimId, setCopiedClaimId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchVerification = async () => {
-    setIsLoading(true);
-
+  // Callers set isLoading(true) first (initial state or the refresh button), so state only changes after fetching
+  const fetchVerification = () => {
     if (typeof window !== 'undefined') {
       const storedActiveId = localStorage.getItem('active_resume_id');
       if (activeResumeId === 'demo-resume-alex-1' && storedActiveId && storedActiveId !== 'demo-resume-alex-1') {
         router.replace(`/trust-score/${storedActiveId}`);
-        return;
+        return Promise.resolve();
       }
     }
 
-    try {
-      const res = await fetch(`/api/verification/${activeResumeId}`);
-      const data = await res.json();
-      if (data.summary) {
-        setVerificationData(data.summary);
-      }
-    } catch (err) {
-      console.error('Failed to load verification claims:', err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
+    // Promise chain keeps every setState in an async callback
+    return fetch(`/api/verification/${activeResumeId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.summary) {
+          setVerificationData(data.summary);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load verification claims:', err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      });
   };
 
   useEffect(() => {
     fetchVerification();
   }, [activeResumeId]);
 
-  const handleCopyClaim = (claim: any) => {
+  const handleCopyClaim = (claim: ClaimVerificationResult['claims'][number]) => {
     const text = `[Verified Proof] ${claim.claimText}\nEvidence: ${claim.evidenceSource}\nConfidence: ${claim.confidenceNote}`;
     navigator.clipboard.writeText(text);
     setCopiedClaimId(claim.id);
@@ -119,7 +121,7 @@ export default function TrustScorePage() {
             </span>
           </div>
           <p className="text-xs text-slate-500 font-medium">
-            Objective, evidence-backed evaluation of {candidateName}'s quantitative achievements, credentials, and scale metrics.
+            Objective, evidence-backed evaluation of {candidateName}&apos;s quantitative achievements, credentials, and scale metrics.
           </p>
         </div>
 
@@ -130,6 +132,7 @@ export default function TrustScorePage() {
             leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />}
             onClick={() => {
               setIsRefreshing(true);
+              setIsLoading(true);
               fetchVerification();
             }}
           >
@@ -312,7 +315,7 @@ export default function TrustScorePage() {
                 </div>
 
                 <p className="text-xs font-bold text-slate-900 leading-relaxed">
-                  "{claim.claimText}"
+                  &quot;{claim.claimText}&quot;
                 </p>
 
                 {/* Evidence Note */}

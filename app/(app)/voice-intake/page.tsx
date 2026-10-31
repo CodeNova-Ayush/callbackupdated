@@ -21,6 +21,48 @@ import { Button } from '@/components/ui/Button';
 import { Card, Badge } from '@/components/ui/Card';
 import { VoiceWaveformThreeCanvas } from '@/components/voice/VoiceWaveformThreeCanvas';
 
+// Minimal Web Speech API types (not in the TS DOM lib)
+interface SpeechRecognitionResultLike {
+  0: { transcript: string };
+}
+
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+interface SpeechRecognitionWindow {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+}
+
+interface ExtractedVoiceData {
+  extractedBullet: string;
+  extractedSkills: string[];
+  evidenceLink: string;
+  confidenceScore: number;
+}
+
+interface ResumeListItem {
+  id: string;
+  title: string;
+}
+
+// Timestamp helper for event callbacks (never called during render)
+const getWaveTimestamp = () => Date.now();
+
 export default function VoiceIntakePage() {
   const router = useRouter();
 
@@ -41,10 +83,12 @@ export default function VoiceIntakePage() {
 
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [extractedData, setExtractedData] = useState<any>(null);
+  const [extractedData, setExtractedData] = useState<ExtractedVoiceData | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  // Timestamp for the recording waveform, refreshed whenever the transcript updates (keeps Date.now out of render)
+  const [waveTime, setWaveTime] = useState(0);
 
   // Load Resumes
   useEffect(() => {
@@ -54,14 +98,14 @@ export default function VoiceIntakePage() {
       .then((data) => {
         if (data.resumes && Array.isArray(data.resumes)) {
           setAllResumes(data.resumes);
-          const targetId = stored && data.resumes.some((r: any) => r.id === stored)
+          const targetId = stored && data.resumes.some((r: ResumeListItem) => r.id === stored)
             ? stored
             : data.resumes.length > 0
             ? data.resumes[0].id
             : 'demo-resume-alex-1';
           setActiveResumeId(targetId);
 
-          const matchedResume = data.resumes.find((r: any) => r.id === targetId);
+          const matchedResume = data.resumes.find((r: ResumeListItem) => r.id === targetId);
           if (matchedResume?.title) {
             setCandidateName(matchedResume.title.split('—')[0].trim());
           }
@@ -73,20 +117,21 @@ export default function VoiceIntakePage() {
   // Browser Speech Recognition Init
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const speechWindow = window as unknown as SpeechRecognitionWindow;
+      const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
       if (SpeechRecognition) {
         const reco = new SpeechRecognition();
         reco.continuous = true;
         reco.interimResults = true;
         reco.lang = 'en-US';
 
-        reco.onresult = (event: any) => {
+        reco.onresult = (event: SpeechRecognitionEventLike) => {
           let full = '';
           for (let i = 0; i < event.results.length; i++) {
             full += event.results[i][0].transcript + ' ';
           }
           setTranscript(full.trim());
+          setWaveTime(getWaveTimestamp());
         };
 
         reco.onerror = () => {
@@ -118,6 +163,7 @@ export default function VoiceIntakePage() {
       setExtractedData(null);
       setIsSaved(false);
       setIsRecording(true);
+      setWaveTime(getWaveTimestamp());
 
       if (recognitionRef.current) {
         try {
@@ -143,6 +189,7 @@ export default function VoiceIntakePage() {
       if (idx < words.length) {
         accumulated += (idx === 0 ? '' : ' ') + words[idx];
         setTranscript(accumulated);
+        setWaveTime(getWaveTimestamp());
         idx++;
       } else {
         clearInterval(interval);
@@ -194,7 +241,7 @@ export default function VoiceIntakePage() {
       const res = await fetch(`/api/resumes/${activeResumeId}`);
       const data = await res.json();
       if (data.resume?.sections) {
-        const expSec = data.resume.sections.find((s: any) => s.sectionType === 'experience');
+        const expSec = data.resume.sections.find((s: { id: string; sectionType: string; content: unknown }) => s.sectionType === 'experience');
         if (expSec) {
           const parsedExp = typeof expSec.content === 'string' ? JSON.parse(expSec.content) : expSec.content;
           if (Array.isArray(parsedExp) && parsedExp.length > 0) {
@@ -277,7 +324,7 @@ export default function VoiceIntakePage() {
                 }`}
                 style={{
                   height: isRecording
-                    ? `${Math.max(20, Math.sin(i * 0.6 + Date.now() * 0.006) * 50 + 50)}%`
+                    ? `${Math.max(20, Math.sin(i * 0.6 + waveTime * 0.006) * 50 + 50)}%`
                     : isExtracting
                     ? `${(i % 4 + 2) * 20}%`
                     : '6px',
@@ -338,7 +385,7 @@ export default function VoiceIntakePage() {
                 </span>
                 <span className="text-[10px] font-bold text-slate-400">Streamed from Microphone</span>
               </div>
-              <p className="text-slate-800 font-medium">"{transcript}"</p>
+              <p className="text-slate-800 font-medium">&quot;{transcript}&quot;</p>
             </div>
           )}
         </Card>
@@ -369,7 +416,7 @@ export default function VoiceIntakePage() {
             </div>
 
             <div className="p-5 bg-white border border-emerald-200 rounded-2xl text-sm font-bold text-slate-900 leading-relaxed shadow-sm">
-              "{extractedData.extractedBullet}"
+              &quot;{extractedData.extractedBullet}&quot;
             </div>
 
             <div className="flex flex-col gap-2.5">

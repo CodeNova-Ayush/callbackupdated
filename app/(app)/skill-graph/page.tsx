@@ -31,6 +31,23 @@ interface SkillNode {
   evidence: { title: string; snippet: string }[];
 }
 
+interface ResumeSectionRow {
+  sectionType: string;
+  content: unknown;
+}
+
+interface ExperienceEntry {
+  company?: string;
+  role?: string;
+  bullets?: string[];
+}
+
+interface ProjectEntry {
+  title?: string;
+  techStack?: string;
+  bullets?: string[];
+}
+
 export default function SkillGraphPage() {
   const [candidateName, setCandidateName] = useState('Candidate Profile');
   const [allResumes, setAllResumes] = useState<{ id: string; title: string }[]>([]);
@@ -67,27 +84,27 @@ export default function SkillGraphPage() {
       if (!target) return;
       setActiveResumeId(target.id);
       setCandidateName(target.candidateName);
-      loadSkillGraph(target.id);
+      fetchSkillGraph(target.id);
     };
     load();
   }, []);
 
   // Load Active Resume Skills & Evidence
-  const loadSkillGraph = async (rId: string) => {
-    setIsLoading(true);
+  // Callers set isLoading(true) first (initial state or the resume switcher), so this only sets state after fetching
+  async function fetchSkillGraph(rId: string) {
     let parsedSkills: string[] = [];
-    let experiences: any[] = [];
-    let projects: any[] = [];
+    let experiences: ExperienceEntry[] = [];
+    let projects: ProjectEntry[] = [];
     let name = 'Candidate';
 
     try {
       const res = await fetch(`/api/resumes/${rId}`);
       const data = await res.json();
       if (data.resume) {
-        const pInfo = data.resume.sections?.find((s: any) => s.sectionType === 'personal_info');
-        const skSec = data.resume.sections?.find((s: any) => s.sectionType === 'skills');
-        const expSec = data.resume.sections?.find((s: any) => s.sectionType === 'experience');
-        const projSec = data.resume.sections?.find((s: any) => s.sectionType === 'projects');
+        const pInfo = data.resume.sections?.find((s: ResumeSectionRow) => s.sectionType === 'personal_info');
+        const skSec = data.resume.sections?.find((s: ResumeSectionRow) => s.sectionType === 'skills');
+        const expSec = data.resume.sections?.find((s: ResumeSectionRow) => s.sectionType === 'experience');
+        const projSec = data.resume.sections?.find((s: ResumeSectionRow) => s.sectionType === 'projects');
 
         if (pInfo) {
           try {
@@ -103,7 +120,7 @@ export default function SkillGraphPage() {
           try {
             const parsed = typeof skSec.content === 'string' ? JSON.parse(skSec.content) : skSec.content;
             if (Array.isArray(parsed)) parsedSkills = parsed;
-            else if (parsed.categories) parsedSkills = parsed.categories.flatMap((c: any) => c.items || []);
+            else if (parsed.categories) parsedSkills = parsed.categories.flatMap((c: { items?: string[] }) => c.items || []);
           } catch {}
         }
 
@@ -173,10 +190,10 @@ export default function SkillGraphPage() {
 
     setSkills(nodes);
     setIsLoading(false);
-  };
+  }
 
   useEffect(() => {
-    if (activeResumeId) loadSkillGraph(activeResumeId);
+    if (activeResumeId) fetchSkillGraph(activeResumeId);
   }, [activeResumeId]);
 
   const handleAddNewSkill = () => {
@@ -229,7 +246,10 @@ export default function SkillGraphPage() {
             <div className="relative">
               <select
                 value={activeResumeId}
-                onChange={(e) => setActiveResumeId(e.target.value)}
+                onChange={(e) => {
+                  setIsLoading(true);
+                  setActiveResumeId(e.target.value);
+                }}
                 className="text-xs font-bold bg-white border border-slate-200 rounded-xl px-3 py-2 pr-8 text-slate-900 focus:outline-none focus:border-[#1C152E] cursor-pointer"
               >
                 {allResumes.map((r) => (
@@ -336,7 +356,7 @@ export default function SkillGraphPage() {
                   >
                     <span className="font-bold text-slate-900 text-[11px]">{ev.title}</span>
                     <span className="text-slate-600 text-[10.5px] font-medium leading-relaxed">
-                      "{ev.snippet}"
+                      &quot;{ev.snippet}&quot;
                     </span>
                   </div>
                 ))}

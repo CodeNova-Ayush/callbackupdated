@@ -431,6 +431,9 @@ const TEMPLATES_GALLERY: TemplateOption[] = [
   },
 ];
 
+// Fallback ids are generated in event handlers only; kept outside the component so it is clearly not render logic
+const createFallbackResumeId = () => `resume-${Date.now()}`;
+
 export default function WelcomePage() {
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
@@ -477,7 +480,7 @@ export default function WelcomePage() {
       });
 
       const data = await res.json();
-      const resumeId = data.resume?.id || data.id || `resume-${Date.now()}`;
+      const resumeId = data.resume?.id || data.id || createFallbackResumeId();
 
       // Save initial cache with selectedTemplate and full rich mock persona so builder opens fully filled
       const cacheKey = 'callback_ai_saved_resume_' + resumeId;
@@ -508,7 +511,7 @@ export default function WelcomePage() {
       router.push(`/builder/${resumeId}?template=${templateId}`);
     } catch (err) {
       console.error('Template creation error, using fallback:', err);
-      const fallbackId = `resume-${Date.now()}`;
+      const fallbackId = createFallbackResumeId();
       const cacheKey = 'callback_ai_saved_resume_' + fallbackId;
       const initialCache = {
         personalInfo: {
@@ -608,9 +611,9 @@ export default function WelcomePage() {
       }
 
       router.push(`/builder/${importedId}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(err.message || 'Could not parse resume file. Opening template selector...');
+      alert((err instanceof Error && err.message) || 'Could not parse resume file. Opening template selector...');
       setStep('templates');
     } finally {
       setIsUploading(false);

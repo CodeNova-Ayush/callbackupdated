@@ -78,6 +78,18 @@ JavaScript, TypeScript, React, HTML5, CSS3, Tailwind, Jest, Webpack, Figma`,
   },
 ];
 
+type ImportGrammarIssue = { original: string; suggestion: string; reason?: string };
+type ImportAnalysisResult = {
+  resumeId?: string;
+  atsScore: number;
+  sectionsCount?: number;
+  skillsExtracted: string[];
+  readabilityScore?: number;
+  overallStrengthScore?: number;
+  grammarIssues: ImportGrammarIssue[];
+  flagshipUrls: { builder: string; jdMatcher: string };
+};
+
 export default function ImportOldResumePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
@@ -87,7 +99,7 @@ export default function ImportOldResumePage() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState(0);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisResult, setAnalysisResult] = useState<ImportAnalysisResult | null>(null);
   const [appliedFixes, setAppliedFixes] = useState<number[]>([]);
 
   const handleSelectSample = (sample: typeof SAMPLE_OLD_RESUMES[0]) => {
@@ -335,7 +347,7 @@ export default function ImportOldResumePage() {
                 <h3 className="text-base font-bold text-slate-900">1-Click Test Drive</h3>
               </div>
               <p className="text-xs text-slate-500">
-                Don't have a file ready? Click any sample resume below to test the parser, ATS audit, and flagship feature engine instantly.
+                Don&apos;t have a file ready? Click any sample resume below to test the parser, ATS audit, and flagship feature engine instantly.
               </p>
 
               <div className="flex flex-col gap-3">
@@ -352,7 +364,7 @@ export default function ImportOldResumePage() {
                       <Badge variant="aurora" size="sm">{sample.badge}</Badge>
                     </div>
                     <span className="text-[11px] text-slate-500 line-clamp-2 italic font-mono">
-                      "{sample.text.slice(0, 110)}..."
+                      &quot;{sample.text.slice(0, 110)}...&quot;
                     </span>
                   </div>
                 ))}
@@ -468,7 +480,7 @@ export default function ImportOldResumePage() {
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  {analysisResult.grammarIssues.map((issue: any, idx: number) => {
+                  {analysisResult.grammarIssues.map((issue: ImportGrammarIssue, idx: number) => {
                     const isApplied = appliedFixes.includes(idx);
                     return (
                       <div key={idx} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-2">
@@ -488,11 +500,11 @@ export default function ImportOldResumePage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                           <div className="p-2.5 bg-rose-50 border border-rose-100 rounded-lg text-rose-950">
                             <span className="font-semibold block mb-0.5 text-rose-700">Original Phrasing:</span>
-                            "{issue.original}"
+                            &quot;{issue.original}&quot;
                           </div>
                           <div className="p-2.5 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-950">
                             <span className="font-semibold block mb-0.5 text-emerald-700">Suggested Action Phrasing:</span>
-                            "{issue.suggestion}"
+                            &quot;{issue.suggestion}&quot;
                           </div>
                         </div>
                         <span className="text-[11px] text-slate-500 italic">Reason: {issue.reason}</span>

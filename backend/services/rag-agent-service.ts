@@ -27,6 +27,52 @@ export const build_agent_prompt = (question: string, context_summary: string) =>
   return { question, context_summary };
 };
 
+// Section shapes as stored in ResumeSection.content JSON. Fields are optional because imports vary.
+interface AgentPersonalInfo {
+  fullName?: string;
+  summary?: string;
+  location?: string;
+  email?: string;
+}
+
+interface AgentExperience {
+  role?: string;
+  company?: string;
+  startDate?: string;
+  endDate?: string;
+  bullets?: string[] | string;
+}
+
+interface AgentEducation {
+  degree?: string;
+  institution?: string;
+  startDate?: string;
+  endDate?: string;
+  gpa?: string;
+}
+
+interface AgentProject {
+  title?: string;
+  techStack?: string;
+  bullets?: string[] | string;
+}
+
+interface AgentLlmReply {
+  reply?: string;
+  citedSources?: unknown;
+}
+
+interface AgentFallbackInput {
+  candidateName: string;
+  personalInfo: AgentPersonalInfo | null;
+  experiences: AgentExperience[];
+  education: AgentEducation[];
+  skills: string[];
+  projects: AgentProject[];
+  certifications: string[];
+  question: string;
+}
+
 // Removes our own block tags from user text so it cannot close a data block early.
 const stripDelimiterTags = (text: string) =>
   String(text ?? '').replace(/<\/?\s*(candidate_profile|recruiter_question)\s*>/gi, '');
@@ -37,11 +83,11 @@ export async function askLivingResumeAgent(
   question: string
 ): Promise<AgentAnswer> {
   let candidateName = 'Candidate';
-  let personalInfo: any = null;
-  let experiences: any[] = [];
-  let education: any[] = [];
+  let personalInfo: AgentPersonalInfo | null = null;
+  let experiences: AgentExperience[] = [];
+  let education: AgentEducation[] = [];
   let skills: string[] = [];
-  let projects: any[] = [];
+  let projects: AgentProject[] = [];
   let certifications: string[] = [];
 
   const resume = await getResumeWithSections(userId, resumeId);
@@ -66,9 +112,9 @@ export async function askLivingResumeAgent(
               if (Array.isArray(parsed)) {
                 skills = parsed;
               } else if (parsed?.categories && Array.isArray(parsed.categories)) {
-                skills = parsed.categories.flatMap((c: any) => c.items || []);
+                skills = parsed.categories.flatMap((c: { items?: string[] }) => c.items || []);
               } else if (typeof parsed === 'object') {
-                skills = Object.values(parsed).flatMap((v: any) => (Array.isArray(v) ? v : [v]));
+                skills = Object.values(parsed as Record<string, string | string[]>).flatMap((v) => (Array.isArray(v) ? v : [v]));
               }
             } else if (s.sectionType === 'projects') projects = Array.isArray(parsed) ? parsed : [parsed];
             else if (s.sectionType === 'certifications') {
@@ -99,16 +145,16 @@ export async function askLivingResumeAgent(
     skills.length > 0 ? `Technical Skills: ${skills.join(', ')}` : '',
     'Work Experience:',
     ...experiences.map(
-      (e: any) =>
+      (e) =>
         `- ${e.role} at ${e.company} (${e.startDate || ''} - ${e.endDate || 'Present'}): ${Array.isArray(e.bullets) ? e.bullets.join(' ') : e.bullets || ''}`
     ),
     'Projects:',
     ...projects.map(
-      (p: any) =>
+      (p) =>
         `- ${p.title} (${p.techStack || ''}): ${Array.isArray(p.bullets) ? p.bullets.join(' ') : p.bullets || ''}`
     ),
     'Education:',
-    ...education.map((ed: any) => `- ${ed.degree || ''} at ${ed.institution || ''} (${ed.startDate || ''} - ${ed.endDate || ''}) ${ed.gpa ? `GPA: ${ed.gpa}` : ''}`),
+    ...education.map((ed) => `- ${ed.degree || ''} at ${ed.institution || ''} (${ed.startDate || ''} - ${ed.endDate || ''}) ${ed.gpa ? `GPA: ${ed.gpa}` : ''}`),
     certifications.length > 0 ? `Certifications: ${certifications.join(', ')}` : '',
   ]
     .filter(Boolean)
@@ -140,7 +186,7 @@ Respond ONLY with a valid JSON object matching this schema:
 }`;
 
   try {
-    const llmRes = await executeMultiProviderLLM({
+    const llmRes = await executeMultiProviderLLM<AgentLlmReply>({
       systemPrompt,
       userPrompt: `<recruiter_question>\n${stripDelimiterTags(question)}\n</recruiter_question>`,
       jsonMode: true,
@@ -179,10 +225,8 @@ function dynamicSemanticAgentAnswer({
   experiences,
   education,
   skills,
-  projects,
-  certifications,
   question,
-}: any): AgentAnswer {
+}: AgentFallbackInput): AgentAnswer {
   const qLower = question.toLowerCase();
 
   // 1. Skills & Tech Stack Query
@@ -225,7 +269,7 @@ function dynamicSemanticAgentAnswer({
       const jobBullets = topJob.bullets && Array.isArray(topJob.bullets) ? topJob.bullets : [];
       const bestBullet = jobBullets.find((b: string) => b.includes('%') || b.includes('ms') || b.includes('reduced') || b.includes('architected')) || jobBullets[0] || 'Led production engineering benchmarks.';
 
-      const citations = experiences.slice(0, 2).map((exp: any) => ({
+      const citations = experiences.slice(0, 2).map((exp) => ({
         sectionTitle: `Experience — ${exp.company || exp.role}`,
         snippet: `${exp.role} at ${exp.company}: ${exp.bullets?.[0] || 'Production engineering deliverable'}`,
       }));
@@ -242,8 +286,8 @@ function dynamicSemanticAgentAnswer({
   if (qLower.includes('education') || qLower.includes('degree') || qLower.includes('university') || qLower.includes('college')) {
     if (education.length > 0) {
       return {
-        reply: `${candidateName}'s verified academic background: ${education.map((e: any) => `${e.degree || 'Degree'} from ${e.institution || 'University'} (${e.startDate || ''} - ${e.endDate || ''})`).join('; ')}.`,
-        citedSources: education.map((e: any) => ({
+        reply: `${candidateName}'s verified academic background: ${education.map((e) => `${e.degree || 'Degree'} from ${e.institution || 'University'} (${e.startDate || ''} - ${e.endDate || ''})`).join('; ')}.`,
+        citedSources: education.map((e) => ({
           sectionTitle: `Education — ${e.institution || 'University'}`,
           snippet: `${e.degree || 'Degree'} (${e.startDate || ''} - ${e.endDate || ''})`,
         })),

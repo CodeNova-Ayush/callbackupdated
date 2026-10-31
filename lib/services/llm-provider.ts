@@ -13,9 +13,12 @@ export interface LLMRequestOptions {
   jsonMode?: boolean;
 }
 
-export interface LLMResponse {
+/** Parsed JSON body of a model reply. Callers pass their expected shape to executeMultiProviderLLM. */
+export type LLMJsonObject = Record<string, unknown>;
+
+export interface LLMResponse<TJson = LLMJsonObject> {
   content: string;
-  json?: any;
+  json?: TJson | null;
   provider: 'groq' | 'nvidia' | 'openrouter' | 'openai' | 'anthropic';
   latencyMs: number;
 }
@@ -123,13 +126,13 @@ function configuredProviders(): ProviderConfig[] {
   return providers.filter((p) => Boolean(p.key));
 }
 
-function parseJsonContent(rawContent: string): Pick<LLMResponse, 'content' | 'json'> {
+function parseJsonContent(rawContent: string): { content: string; json: unknown } {
   let content = rawContent;
   if (content.includes('```')) {
     content = content.replace(/```(?:json)?([\s\S]*?)```/g, '$1').trim();
   }
   const match = content.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-  let json = null;
+  let json: unknown = null;
   if (match) {
     try {
       json = JSON.parse(match[0]);
@@ -138,7 +141,9 @@ function parseJsonContent(rawContent: string): Pick<LLMResponse, 'content' | 'js
   return { content, json };
 }
 
-export async function executeMultiProviderLLM(options: LLMRequestOptions): Promise<LLMResponse> {
+export async function executeMultiProviderLLM<TJson = LLMJsonObject>(
+  options: LLMRequestOptions
+): Promise<LLMResponse<TJson>> {
   const opts: Required<LLMRequestOptions> = {
     systemPrompt:
       options.systemPrompt ?? 'You are an elite AI Career & ATS Optimization Engine. Return accurate, professional responses.',
@@ -176,7 +181,7 @@ export async function executeMultiProviderLLM(options: LLMRequestOptions): Promi
 
       return {
         content,
-        json,
+        json: json as TJson | null,
         provider: provider.name,
         latencyMs: Date.now() - start,
       };

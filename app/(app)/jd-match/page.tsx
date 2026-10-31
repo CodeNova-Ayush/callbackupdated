@@ -1,26 +1,31 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Target, Upload, FileText, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, Badge } from '@/components/ui/Card';
 
+const DEMO_RESUME_ID = 'demo-resume-alex-1';
+
+// localStorage has no change events for same-tab writes; a read on render is enough here.
+const subscribeNoop = () => () => {};
+const getActiveResumeId = () => localStorage.getItem('active_resume_id') ?? '';
+// null on the server and during hydration means "still checking".
+const getServerActiveResumeId = () => null;
+
 export default function JdMatchRootPage() {
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
+  const activeId = useSyncExternalStore<string | null>(subscribeNoop, getActiveResumeId, getServerActiveResumeId);
+  const redirectId = activeId && activeId !== DEMO_RESUME_ID ? activeId : null;
+  const checking = activeId === null || redirectId !== null;
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const activeId = localStorage.getItem('active_resume_id');
-      if (activeId && activeId !== 'demo-resume-alex-1') {
-        router.replace(`/jd-match/${activeId}`);
-        return;
-      }
-      setChecking(false);
+    if (redirectId) {
+      router.replace(`/jd-match/${redirectId}`);
     }
-  }, [router]);
+  }, [redirectId, router]);
 
   if (checking) return null;
 

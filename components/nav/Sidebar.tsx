@@ -29,6 +29,21 @@ interface NavGroup {
   }[];
 }
 
+interface ResumeSectionPayload {
+  sectionType: string;
+  content: unknown;
+}
+
+const DEMO_RESUME_ID = 'demo-resume-alex-1';
+const DEFAULT_CANDIDATE_NAME = 'Candidate Profile';
+const DEFAULT_CANDIDATE_EMAIL = 'candidate@callback.ai';
+
+// Some auth providers expose a list of addresses instead of (or alongside) a primary one.
+function firstListedEmail(user: object): string | undefined {
+  const { emailAddresses } = user as { emailAddresses?: { emailAddress?: string }[] };
+  return emailAddresses?.[0]?.emailAddress;
+}
+
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const { signOut } = useAuth();
@@ -36,50 +51,53 @@ export const Sidebar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const resumeIdMatch = pathname.match(/\/(builder|analyzer|jd-match)\/([^\/]+)/);
-  const [activeResumeId, setActiveResumeId] = useState<string>(() => (resumeIdMatch ? resumeIdMatch[2] : ''));
+  const routeResumeId = resumeIdMatch ? resumeIdMatch[2] : '';
+  const [activeResumeId, setActiveResumeId] = useState<string>(routeResumeId);
+
+  // A real resume id in the route always wins over the stored active resume.
+  if (routeResumeId && routeResumeId !== DEMO_RESUME_ID && activeResumeId !== routeResumeId) {
+    setActiveResumeId(routeResumeId);
+  }
+
+  // Close mobile drawer on navigation
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (lastPathname !== pathname) {
+    setLastPathname(pathname);
+    setIsMobileMenuOpen(false);
+  }
+
+  const [storedCandidateName, setCandidateName] = useState(DEFAULT_CANDIDATE_NAME);
+  const [storedCandidateEmail, setCandidateEmail] = useState(DEFAULT_CANDIDATE_EMAIL);
 
   React.useEffect(() => {
-    if (resumeIdMatch && resumeIdMatch[2] !== 'demo-resume-alex-1') {
-      setActiveResumeId(resumeIdMatch[2]);
-    }
-  }, [pathname, resumeIdMatch]);
-
-  const [candidateName, setCandidateName] = useState('Candidate Profile');
-  const [candidateEmail, setCandidateEmail] = useState('candidate@callback.ai');
-
-  const sync_identity = async () => {
-    const activeStored = await getActiveStoredResume();
-    if (!activeStored) return;
-    if (activeStored.candidateName) setCandidateName(activeStored.candidateName);
-    if (activeStored.candidateEmail) setCandidateEmail(activeStored.candidateEmail);
-    if (activeStored.id) setActiveResumeId(activeStored.id);
-  };
-
-  React.useEffect(() => {
-    sync_identity();
-    const handleStorageChange = () => {
-      sync_identity();
+    const syncIdentity = () => {
+      getActiveStoredResume().then((activeStored) => {
+        if (!activeStored) return;
+        if (activeStored.candidateName) setCandidateName(activeStored.candidateName);
+        if (activeStored.candidateEmail) setCandidateEmail(activeStored.candidateEmail);
+        if (activeStored.id) setActiveResumeId(activeStored.id);
+      });
     };
-    window.addEventListener('active_resume_changed', handleStorageChange);
-    window.addEventListener('storage', handleStorageChange);
+    syncIdentity();
+    window.addEventListener('active_resume_changed', syncIdentity);
+    window.addEventListener('storage', syncIdentity);
     return () => {
-      window.removeEventListener('active_resume_changed', handleStorageChange);
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('active_resume_changed', syncIdentity);
+      window.removeEventListener('storage', syncIdentity);
     };
   }, []);
 
-  React.useEffect(() => {
-    if (!isLoaded || !user) return;
-
-    const primaryEmail = user.primaryEmailAddress?.emailAddress || (user as any).emailAddresses?.[0]?.emailAddress;
-    const name = user.fullName || user.firstName || primaryEmail?.split('@')[0];
-    if (name && (candidateName === 'Candidate Profile' || candidateName === 'Alex Rivera')) {
-      setCandidateName(name);
-    }
-    if (primaryEmail && (candidateEmail === 'candidate@callback.ai' || candidateEmail.includes('alex.rivera'))) {
-      setCandidateEmail(primaryEmail);
-    }
-  }, [isLoaded, user]);
+  // Signed-in account identity fills in while the stored profile still shows placeholder values.
+  const accountEmail = isLoaded && user ? user.primaryEmailAddress?.emailAddress || firstListedEmail(user) : undefined;
+  const accountName = isLoaded && user ? user.fullName || user.firstName || accountEmail?.split('@')[0] : undefined;
+  const candidateName =
+    accountName && (storedCandidateName === DEFAULT_CANDIDATE_NAME || storedCandidateName === 'Alex Rivera')
+      ? accountName
+      : storedCandidateName;
+  const candidateEmail =
+    accountEmail && (storedCandidateEmail === DEFAULT_CANDIDATE_EMAIL || storedCandidateEmail.includes('alex.rivera'))
+      ? accountEmail
+      : storedCandidateEmail;
 
   React.useEffect(() => {
     if (!activeResumeId || activeResumeId === 'demo-resume-alex-1') {
@@ -99,7 +117,7 @@ export const Sidebar: React.FC = () => {
         if (data.resume && data.resume.id !== 'demo-resume-alex-1') {
           let name = '';
           if (data.resume.sections) {
-            const pInfo = data.resume.sections.find((s: any) => s.sectionType === 'personal_info');
+            const pInfo = data.resume.sections.find((section: ResumeSectionPayload) => section.sectionType === 'personal_info');
             if (pInfo) {
               try {
                 const parsed = typeof pInfo.content === 'string' ? JSON.parse(pInfo.content) : pInfo.content;
@@ -118,11 +136,6 @@ export const Sidebar: React.FC = () => {
       })
       .catch(() => {});
   }, [activeResumeId]);
-
-  // Close mobile drawer on navigation
-  React.useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [pathname]);
 
   const initials =
     candidateName

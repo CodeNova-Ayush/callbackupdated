@@ -20,14 +20,28 @@ export interface ATSAnalysisOutput {
   };
 }
 
+// Section shapes read from ResumeSection.content JSON. Only the fields this analysis reads are listed.
+interface AtsPersonalInfo {
+  fullName?: string;
+}
+
+interface AtsExperience {
+  role?: string;
+  bullets?: string[];
+}
+
+interface AtsGrammarAuditJson {
+  grammarIssues?: ATSAnalysisOutput['grammarIssues'];
+}
+
 export async function analyzeResume(userId: string, resumeId: string): Promise<ATSAnalysisOutput> {
   let candidateName = 'Ayush Mishra';
   let candidateTitle = 'Staff AI Engineer';
-  let personalInfo: any = null;
-  let experiences: any[] = [];
-  let education: any[] = [];
+  let personalInfo: AtsPersonalInfo | null = null;
+  let experiences: AtsExperience[] = [];
+  let education: unknown[] = [];
   let skills: string[] = [];
-  let projects: any[] = [];
+  let projects: unknown[] = [];
   let resumeTitle = 'Resume Document';
 
   try {
@@ -49,7 +63,7 @@ export async function analyzeResume(userId: string, resumeId: string): Promise<A
             if (Array.isArray(parsed)) {
               skills = parsed;
             } else if (parsed?.categories && Array.isArray(parsed.categories)) {
-              skills = parsed.categories.flatMap((c: any) => c.items || []);
+              skills = parsed.categories.flatMap((c: { items?: string[] }) => c.items || []);
             } else {
               skills = [];
             }
@@ -106,7 +120,7 @@ export async function analyzeResume(userId: string, resumeId: string): Promise<A
 
   if (allBullets.length > 0) {
     try {
-      const llmRes = await executeMultiProviderLLM({
+      const llmRes = await executeMultiProviderLLM<AtsGrammarAuditJson>({
         systemPrompt: 'You are a Principal ATS Resume Auditor and Executive Recruiter. Return pure JSON only.',
         userPrompt: `Audit these resume bullets and return 3 high-impact executive rewrites:
 ${allBullets.slice(0, 3).join('\n')}
@@ -219,7 +233,7 @@ Return JSON:
         scoringRubricBreakdownJson: JSON.stringify(result.scoringRubricBreakdown),
       },
     });
-  } catch (err) {
+  } catch {
     // Ignore duplicate or FK issue on mock IDs
   }
 

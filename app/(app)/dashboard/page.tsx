@@ -25,13 +25,20 @@ import { TemplateId } from '@/components/builder/ResumeTemplates';
 
 import { getStoredResumes, StoredResumeItem } from '@/lib/client-resume-store';
 
+type DashboardResumeCard = Pick<StoredResumeItem, 'id' | 'title' | 'isActive'> & {
+  updatedAt: string;
+  atsScore: number;
+  trustScore: number;
+  template: string;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newResumeTitle, setNewResumeTitle] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('modern_executive');
 
-  const [resumes, setResumes] = useState<any[]>([]);
+  const [resumes, setResumes] = useState<DashboardResumeCard[]>([]);
 
   useEffect(() => {
     getStoredResumes()

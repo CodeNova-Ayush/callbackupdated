@@ -1,4 +1,4 @@
-import PDFParser from 'pdf2json';
+import PDFParser, { type Output as PdfOutput } from 'pdf2json';
 import mammoth from 'mammoth';
 
 /**
@@ -8,19 +8,19 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   // Layer 1: pdf2json with page-level text token decoding
   const parsedPdf = await new Promise<string>((resolve) => {
     try {
-      const pdfParser = new (PDFParser as any)(null, 1);
+      const pdfParser = new PDFParser(null, true);
 
       const timeout = setTimeout(() => {
         resolve('');
       }, 3500);
 
-      pdfParser.on('pdfParser_dataError', (errData: any) => {
+      pdfParser.on('pdfParser_dataError', (errData: { parserError: Error } | Error) => {
         clearTimeout(timeout);
-        console.error('pdf2json parser error:', errData?.parserError);
+        console.error('pdf2json parser error:', errData && 'parserError' in errData ? errData.parserError : undefined);
         resolve('');
       });
 
-      pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
+      pdfParser.on('pdfParser_dataReady', (pdfData: PdfOutput) => {
         clearTimeout(timeout);
         try {
           // Extract text by decoding URL-encoded characters from PDF tokens
