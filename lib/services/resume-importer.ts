@@ -17,8 +17,61 @@
 
 import { db } from '@/lib/db';
 import { ATSAnalysisOutput } from '@/lib/services/ats-service';
-import { saveResumeToMemory } from '@/lib/services/resume-service';
 import { executeMultiProviderLLM } from '@/lib/services/llm-provider';
+import type {
+  StoredEducationItem,
+  StoredExperienceItem,
+  StoredPersonalInfo,
+  StoredProjectItem,
+} from '@/lib/client-resume-store';
+
+type ImportedExperience = {
+  id: string;
+  company: string;
+  role: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  bullets: string[];
+};
+
+type ImportedEducation = {
+  id: string;
+  institution: string;
+  degree: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  gpa: string;
+};
+
+type ImportedProject = {
+  id: string;
+  title: string;
+  techStack: string;
+  link: string;
+  bullets: string[];
+};
+
+// JSON the extraction prompt asks the model to return. Every field may be missing.
+interface ImportLlmJson {
+  personalInfo?: {
+    fullName?: string;
+    title?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    linkedin?: string;
+    github?: string;
+    website?: string;
+    summary?: string;
+  };
+  experience?: Partial<Omit<ImportedExperience, 'id'>>[];
+  education?: Partial<Omit<ImportedEducation, 'id'>>[];
+  projects?: Partial<Omit<ImportedProject, 'id'>>[];
+  skills?: string[];
+  certifications?: string[];
+}
 
 export interface ImportedResumeResult {
   resumeId: string;
@@ -33,25 +86,21 @@ export interface ImportedResumeResult {
   missingSections: string[];
   scoringRubricBreakdown: ATSAnalysisOutput['scoringRubricBreakdown'];
   parsedSections: {
-    personalInfo: any;
-    experience: any[];
-    education: any[];
+    personalInfo: StoredPersonalInfo;
+    experience: StoredExperienceItem[];
+    education: StoredEducationItem[];
     skills: string[];
-    projects: any[];
+    projects: StoredProjectItem[];
     certifications: string[];
   };
 }
 
 export async function parseAndImportOldResume(
+  userId: string,
   rawText: string,
   customTitle?: string,
   fileName?: string
 ): Promise<ImportedResumeResult> {
-  const lines = rawText
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
-
   // 1. Initial Regex Extractions for Fallback & Anchors
   let email = '';
   let phone = '';
@@ -80,9 +129,9 @@ export async function parseAndImportOldResume(
   let extractedTitle = '';
   let extractedLocation = '';
   let extractedSummary = '';
-  let parsedExperiences: any[] = [];
-  let parsedEducation: any[] = [];
-  let parsedProjects: any[] = [];
+  let parsedExperiences: ImportedExperience[] = [];
+  let parsedEducation: ImportedEducation[] = [];
+  let parsedProjects: ImportedProject[] = [];
   let extractedSkills: string[] = [];
   let parsedCertifications: string[] = [];
 
@@ -141,7 +190,7 @@ Return ONLY pure JSON matching this exact schema:
   "certifications": ["List of certifications, awards, hackathons, or honors"]
 }`;
 
-    const llmRes = await executeMultiProviderLLM({
+    const llmRes = await executeMultiProviderLLM<ImportLlmJson>({
       systemPrompt: 'You are an elite, highly precise ATS Resume Parser. Your mission is to extract the exact real candidate details from the provided resume text. Never hallucinate or insert placeholder names.',
       userPrompt: parsePrompt,
       jsonMode: true,
@@ -164,7 +213,7 @@ Return ONLY pure JSON matching this exact schema:
       if (pi.summary) extractedSummary = pi.summary.trim();
 
       if (Array.isArray(parsedJson.experience) && parsedJson.experience.length > 0) {
-        parsedExperiences = parsedJson.experience.map((e: any, idx: number) => ({
+        parsedExperiences = parsedJson.experience.map((e, idx) => ({
           id: `exp-${idx + 1}`,
           company: e.company || 'Company',
           role: e.role || extractedTitle || 'Software Engineer',
@@ -176,7 +225,7 @@ Return ONLY pure JSON matching this exact schema:
       }
 
       if (Array.isArray(parsedJson.education) && parsedJson.education.length > 0) {
-        parsedEducation = parsedJson.education.map((ed: any, idx: number) => ({
+        parsedEducation = parsedJson.education.map((ed, idx) => ({
           id: `edu-${idx + 1}`,
           institution: ed.institution || 'University',
           degree: ed.degree || 'Degree',
@@ -188,7 +237,7 @@ Return ONLY pure JSON matching this exact schema:
       }
 
       if (Array.isArray(parsedJson.projects) && parsedJson.projects.length > 0) {
-        parsedProjects = parsedJson.projects.map((p: any, idx: number) => ({
+        parsedProjects = parsedJson.projects.map((p, idx) => ({
           id: `proj-${idx + 1}`,
           title: p.title || 'Engineering Project',
           techStack: p.techStack || '',
@@ -295,17 +344,8 @@ Return ONLY pure JSON matching this exact schema:
     title: extractedTitle,
   };
 
-  const finalTitle = `${extractedName} — ${extractedTitle}`;
-  let userId = 'demo-user-alex';
-  let resumeId = `imported-${Date.now()}`;
-
-  // 5. Try to find user from DB
-  try {
-    const user = await db.user.findFirst();
-    if (user?.id) userId = user.id;
-  } catch (e) {
-    console.warn('Database query user.findFirst note:', e);
-  }
+  const finalTitle = customTitle || `${extractedName} — ${extractedTitle}`;
+  let resumeId = '';
 
   const sectionDefs = [
     { id: `sec-pi-${Date.now()}`, sectionType: 'personal_info', order: 0, content: personalInfo },
@@ -380,44 +420,9 @@ Return ONLY pure JSON matching this exact schema:
       }
     }
   } catch (dbErr) {
-    console.warn('Database write note (operating with in-memory parsed state):', dbErr);
+    console.error('Failed to persist imported resume:', dbErr);
+    throw new Error('IMPORT_FAILED');
   }
-
-  // 7. Always save full structured resume in memory cache so all pages immediately work
-  const memoryRecord = {
-    id: resumeId,
-    userId,
-    title: finalTitle,
-    isActive: true,
-    sections: sectionDefs.map((s) => ({
-      id: s.id,
-      resumeId,
-      sectionType: s.sectionType,
-      order: s.order,
-      content: JSON.stringify(s.content),
-    })),
-    analysisResults: [
-      {
-        atsScore,
-        readabilityScore: 94,
-        overallStrengthScore: Math.round(atsScore * 0.98),
-        formattingIssuesJson: JSON.stringify(formattingIssues),
-        missingSectionsJson: JSON.stringify(missingSections),
-        grammarIssuesJson: JSON.stringify(grammarIssues),
-      },
-    ],
-    verificationClaims: parsedExperiences.slice(0, 2).map((exp, idx) => ({
-      id: `claim-${idx + 1}`,
-      resumeId,
-      claimText: exp.bullets?.[0] || 'Verified engineering deliverable',
-      status: 'verified',
-      evidenceSource: `${exp.company} Verified Record`,
-      confidenceNote: 'Extracted and verified from candidate career history',
-      specificityScore: 98,
-    })),
-  };
-
-  saveResumeToMemory(memoryRecord);
 
   return {
     resumeId,
@@ -491,7 +496,7 @@ function extractAllSectionsDeterministically(
   let location = '';
   let linkedin = preMatches?.linkedin || '';
   let github = preMatches?.github || '';
-  let website = preMatches?.website || '';
+  const website = preMatches?.website || '';
   let summary = '';
   let title = '';
 
@@ -554,8 +559,8 @@ function extractAllSectionsDeterministically(
   }
 
   // 2. Experience Extraction
-  const experiences: any[] = [];
-  let currentExp: any = null;
+  const experiences: ImportedExperience[] = [];
+  let currentExp: ImportedExperience | null = null;
 
   for (const line of sectionBlocks.experience) {
     const isBullet = /^[•\-*–—\d.)]+\s+/.test(line);
@@ -622,8 +627,8 @@ function extractAllSectionsDeterministically(
   if (!title) title = 'Senior Software Engineer & AI Builder';
 
   // 3. Education Extraction
-  const education: any[] = [];
-  let currentEdu: any = null;
+  const education: ImportedEducation[] = [];
+  let currentEdu: ImportedEducation | null = null;
 
   for (const line of sectionBlocks.education) {
     const isDegree = /Bachelor|Master|B\.Tech|B\.S|M\.S|B\.E|Ph\.D|Diploma|Degree|Associate/i.test(line);
@@ -659,7 +664,7 @@ function extractAllSectionsDeterministically(
         endDate = d[1];
       }
 
-      let gpa = gpaMatch ? gpaMatch[0].trim() : '';
+      const gpa = gpaMatch ? gpaMatch[0].trim() : '';
 
       let cleanLine = line;
       if (dateMatch) cleanLine = cleanLine.replace(dateMatch[0], '').replace(/[()]/g, '');
@@ -667,8 +672,8 @@ function extractAllSectionsDeterministically(
       cleanLine = cleanLine.replace(/\|/g, '').trim();
 
       const parts = cleanLine.split(/[|—–-]/).map((p) => p.trim()).filter(Boolean);
-      let degree = isDegree ? parts[0] || 'Bachelor of Science in Computer Science' : '';
-      let institution = isInstitute ? parts[isDegree ? 1 : 0] || 'University / Institute' : '';
+      const degree = isDegree ? parts[0] || 'Bachelor of Science in Computer Science' : '';
+      const institution = isInstitute ? parts[isDegree ? 1 : 0] || 'University / Institute' : '';
 
       currentEdu = {
         id: `edu-${education.length + 1}`,
@@ -686,8 +691,8 @@ function extractAllSectionsDeterministically(
   }
 
   // 4. Projects Extraction
-  const projects: any[] = [];
-  let currentProj: any = null;
+  const projects: ImportedProject[] = [];
+  let currentProj: ImportedProject | null = null;
 
   for (const line of sectionBlocks.projects) {
     const isBullet = /^[•\-*–—\d.)]+\s+/.test(line);
@@ -702,7 +707,7 @@ function extractAllSectionsDeterministically(
       const linkMatch = line.match(/https?:\/\/[^\s)]+/);
       if (linkMatch) link = linkMatch[0];
 
-      let clean = line.replace(/https?:\/\/[^\s)]+/, '').replace(/[()|]/g, ' ').trim();
+      const clean = line.replace(/https?:\/\/[^\s)]+/, '').replace(/[()|]/g, ' ').trim();
       currentProj = {
         id: `proj-${projects.length + 1}`,
         title: clean || 'Engineering Project',
@@ -731,7 +736,7 @@ function extractAllSectionsDeterministically(
     'GraphQL', 'REST APIs', 'gRPC', 'Kafka', 'RabbitMQ', 'Tailwind CSS', 'Prisma', 'Microservices'
   ];
 
-  let skills = commonTech.filter((skill) =>
+  const skills = commonTech.filter((skill) =>
     new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(rawText)
   );
 

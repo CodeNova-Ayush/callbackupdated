@@ -720,7 +720,7 @@ React, Next.js, TypeScript, Node.js, Python, PostgreSQL, Prisma, Tailwind CSS, D
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveCategoryFilter(tab.id as any)}
+                  onClick={() => setActiveCategoryFilter(tab.id as typeof activeCategoryFilter)}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                     activeCategoryFilter === tab.id
                       ? 'bg-slate-900 text-white shadow-2xs'

@@ -307,10 +307,10 @@ export default function LandingPage() {
               <Layout className="w-3.5 h-3.5" /> 40+ Battle-Tested Templates • Hired at Google & Microsoft
             </Badge>
             <h2 className="text-3xl sm:text-4xl font-black text-[#231F1D] tracking-tight">
-              India's Top Resume Templates That Get Hired by Google, Microsoft & Top Tech
+              India&apos;s Top Resume Templates That Get Hired by Google, Microsoft & Top Tech
             </h2>
             <p className="text-sm md:text-base text-[#786F68] leading-relaxed">
-              Explore 40+ production-grade, ATS-certified templates designed for engineers and leaders. Handcrafted and proven by candidates hired at Google, Microsoft, Amazon, Meta, and India's top tech unicorns.
+              Explore 40+ production-grade, ATS-certified templates designed for engineers and leaders. Handcrafted and proven by candidates hired at Google, Microsoft, Amazon, Meta, and India&apos;s top tech unicorns.
             </p>
           </div>
 
@@ -1182,7 +1182,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex flex-col gap-1 text-[10px] font-sans">
-                  <span className="text-slate-400 italic">"I led the database migration to PgVector which lowered our query latency by 45%..."</span>
+                  <span className="text-slate-400 italic">&quot;I led the database migration to PgVector which lowered our query latency by 45%...&quot;</span>
                   <div className="pt-1.5 border-t border-slate-800 text-emerald-400 font-medium">
                     ✓ Extracted: <strong>Action + Metric (45% Latency Drop)</strong>
                   </div>
@@ -1662,7 +1662,7 @@ export default function LandingPage() {
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
-                  "Callback fundamentally transformed technical candidate screening for our team. Instead of guessing if bullet points were inflated, our hiring managers questioned the living candidate agent and got instant GitHub citations."
+                  &quot;Callback fundamentally transformed technical candidate screening for our team. Instead of guessing if bullet points were inflated, our hiring managers questioned the living candidate agent and got instant GitHub citations.&quot;
                 </p>
               </div>
 
@@ -1691,7 +1691,7 @@ export default function LandingPage() {
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
-                  "The clean Markdown & JSON-LD schema exports straight into Greenhouse without manual re-formatting. It is the gold standard for developer resumes. No dropped sections, no font errors."
+                  &quot;The clean Markdown & JSON-LD schema exports straight into Greenhouse without manual re-formatting. It is the gold standard for developer resumes. No dropped sections, no font errors.&quot;
                 </p>
               </div>
 
@@ -1720,7 +1720,7 @@ export default function LandingPage() {
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
-                  "I switched my resume to Callback Minimalist Tech and received 4 Tier-1 interview requests within 48 hours. The recruiter told me the interactive candidate agent was the clincher."
+                  &quot;I switched my resume to Callback Minimalist Tech and received 4 Tier-1 interview requests within 48 hours. The recruiter told me the interactive candidate agent was the clincher.&quot;
                 </p>
               </div>
 
@@ -1754,7 +1754,7 @@ export default function LandingPage() {
               Everything You Need to Know
             </h2>
             <p className="text-base text-slate-500">
-              Frequently asked questions about Callback's living candidate agents, ATS compatibility, and verification.
+              Frequently asked questions about Callback&apos;s living candidate agents, ATS compatibility, and verification.
             </p>
           </div>
 

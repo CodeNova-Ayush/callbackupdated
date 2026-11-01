@@ -1,31 +1,31 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Upload, FileText, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, Badge } from '@/components/ui/Card';
 
+const noopSubscribe = () => () => {};
+const readActiveResumeId = () => localStorage.getItem('active_resume_id');
+const readActiveResumeIdOnServer = () => null;
+const readIsClient = () => true;
+const readIsClientOnServer = () => false;
+
 export default function AnalyzerRootPage() {
   const router = useRouter();
-  const [activeResumeId, setActiveResumeId] = useState<string | null>(null);
-  const [candidateName, setCandidateName] = useState<string>('');
-  const [checking, setChecking] = useState(true);
+  // Browser storage is read via useSyncExternalStore so the server snapshot (null) matches the first client render.
+  const isClient = useSyncExternalStore(noopSubscribe, readIsClient, readIsClientOnServer);
+  const activeId = useSyncExternalStore(noopSubscribe, readActiveResumeId, readActiveResumeIdOnServer);
+  const shouldRedirect = !!activeId && activeId !== 'demo-resume-alex-1';
+  const checking = !isClient || shouldRedirect;
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const activeId = localStorage.getItem('active_resume_id');
-      const name = localStorage.getItem('user_name') || localStorage.getItem('active_candidate_name') || '';
-      if (activeId && activeId !== 'demo-resume-alex-1') {
-        router.replace(`/analyzer/${activeId}`);
-        return;
-      }
-      setActiveResumeId(activeId);
-      setCandidateName(name);
-      setChecking(false);
+    if (shouldRedirect) {
+      router.replace(`/analyzer/${activeId}`);
     }
-  }, [router]);
+  }, [router, shouldRedirect, activeId]);
 
   if (checking) return null;
 

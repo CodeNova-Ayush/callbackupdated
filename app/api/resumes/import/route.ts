@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
+import { bad_request, guard_model, guard_user } from '@/lib/api-guard';
 import { parseAndImportOldResume } from '@/lib/services/resume-importer';
-import { extractTextFromPdf, extractTextFromDocx } from '@/lib/services/document-parser';
+import { assert_request_size, text_from_upload, upload_error_response } from '@/lib/upload';
+import { limits, text, ValidationError } from '@/lib/validate';
 
 export async function POST(request: Request) {
+  const { user, response } = await guard_user();
+  if (!user) return response;
+  const limited = guard_model(user.id);
+  if (limited) return limited;
   try {
+    assert_request_size(request);
     const contentType = request.headers.get('content-type') || '';
     let rawText = '';
     let customTitle: string | undefined;
@@ -11,43 +18,29 @@ export async function POST(request: Request) {
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
-      const file = formData.get('file') as File | null;
-      customTitle = (formData.get('customTitle') as string) || undefined;
-      const directText = (formData.get('rawText') as string) || '';
-
-      if (file) {
-        fileName = file.name;
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        if (file.name.toLowerCase().endsWith('.pdf')) {
-          rawText = await extractTextFromPdf(buffer);
-        } else if (file.name.toLowerCase().endsWith('.docx')) {
-          rawText = await extractTextFromDocx(buffer);
-        } else {
-          rawText = buffer.toString('utf-8');
-        }
+      const file = formData.get('file');
+      customTitle = text(formData.get('customTitle'), limits.title) || undefined;
+      const directText = text(formData.get('rawText'), limits.rawText);
+      if (file instanceof File && file.size > 0) {
+        fileName = text(file.name, limits.shortField);
+        rawText = await text_from_upload(file);
       }
-
-      if (!rawText && directText) {
-        rawText = directText;
-      }
+      if (!rawText && directText) rawText = directText;
     } else {
       const body = await request.json();
-      rawText = body.rawText || '';
-      customTitle = body.customTitle;
-      fileName = body.fileName;
+      rawText = text(body.rawText, limits.rawText);
+      customTitle = text(body.customTitle, limits.title) || undefined;
+      fileName = text(body.fileName, limits.shortField) || undefined;
     }
 
-    if (!rawText || typeof rawText !== 'string' || rawText.trim().length === 0) {
+    if (!rawText.trim()) {
       return NextResponse.json(
         { error: 'Please provide valid resume text or upload a readable PDF/DOCX/TXT file.' },
         { status: 400 }
       );
     }
 
-    const result = await parseAndImportOldResume(rawText, customTitle, fileName);
-
+    const result = await parseAndImportOldResume(user.id, rawText.slice(0, limits.rawText), customTitle, fileName);
     return NextResponse.json({
       success: true,
       ...result,
@@ -57,8 +50,11 @@ export async function POST(request: Request) {
         jdMatcher: `/jd-match/${result.resumeId}`,
       },
     });
-  } catch (error: any) {
-    console.error('Failed to import old resume:', error);
-    return NextResponse.json({ error: error.message || 'Failed to parse and import resume.' }, { status: 500 });
+  } catch (error) {
+    if (error instanceof ValidationError) return bad_request(error.message);
+    const upload = upload_error_response(error);
+    if (upload) return NextResponse.json({ error: upload.error }, { status: upload.status });
+    console.error('Failed to import old resume:', error instanceof Error ? error.message : 'unknown error');
+    return NextResponse.json({ error: 'Failed to parse and import resume.' }, { status: 500 });
   }
 }

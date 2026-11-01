@@ -45,6 +45,17 @@ interface CandidateProfile {
   summary: string;
 }
 
+interface ResumeListItem {
+  id: string;
+  title: string;
+  analysisResult?: { atsScore?: number } | null;
+}
+
+interface ResumeSectionRow {
+  sectionType: string;
+  content: string;
+}
+
 const TARGET_ROLES = [
   'Staff AI Engineer (Distributed Systems)',
   'Senior Full-Stack Engineer (Next.js & Cloud)',
@@ -84,12 +95,17 @@ export default function RecruiterDashboardPage() {
   // Load Real Candidates from Database
   const loadCandidates = async () => {
     setIsLoadingCandidates(true);
+    await fetchCandidates();
+  };
+
+  // Fetch candidates; state is only set after the request resolves
+  async function fetchCandidates() {
     try {
       const res = await fetch('/api/resumes');
       const data = await res.json();
       if (data.resumes && Array.isArray(data.resumes)) {
         const mapped: CandidateProfile[] = await Promise.all(
-          data.resumes.map(async (r: any) => {
+          data.resumes.map(async (r: ResumeListItem) => {
             let role = 'Software Engineer & AI Builder';
             let location = 'Bengaluru, India';
             let summary = '';
@@ -100,9 +116,9 @@ export default function RecruiterDashboardPage() {
               const dRes = await fetch(`/api/resumes/${r.id}`);
               const dData = await dRes.json();
               if (dData.resume?.sections) {
-                const exp = dData.resume.sections.find((s: any) => s.sectionType === 'experience');
-                const pInfo = dData.resume.sections.find((s: any) => s.sectionType === 'personal_info');
-                const sk = dData.resume.sections.find((s: any) => s.sectionType === 'skills');
+                const exp = dData.resume.sections.find((s: ResumeSectionRow) => s.sectionType === 'experience');
+                const pInfo = dData.resume.sections.find((s: ResumeSectionRow) => s.sectionType === 'personal_info');
+                const sk = dData.resume.sections.find((s: ResumeSectionRow) => s.sectionType === 'skills');
 
                 if (exp) {
                   try {
@@ -121,7 +137,7 @@ export default function RecruiterDashboardPage() {
                   try {
                     const parsed = JSON.parse(sk.content);
                     if (Array.isArray(parsed)) skills = parsed;
-                    else if (parsed.categories) skills = parsed.categories.flatMap((c: any) => c.items || []);
+                    else if (parsed.categories) skills = parsed.categories.flatMap((c: { items?: string[] }) => c.items || []);
                   } catch {}
                 }
               }
@@ -151,10 +167,11 @@ export default function RecruiterDashboardPage() {
     } finally {
       setIsLoadingCandidates(false);
     }
-  };
+  }
 
   useEffect(() => {
-    loadCandidates();
+    // isLoadingCandidates starts true, so the initial load skips the synchronous setState
+    fetchCandidates();
   }, []);
 
   // Open Chat Drawer for Candidate
@@ -294,7 +311,7 @@ export default function RecruiterDashboardPage() {
             Candidate Agent Matcher
           </h1>
           <p className="text-xs md:text-sm text-[#786F68]">
-            Screen verified candidate pools with zero recruiter calls. Converse directly with candidates' living agents grounded in production codebases and work histories.
+            Screen verified candidate pools with zero recruiter calls. Converse directly with candidates&apos; living agents grounded in production codebases and work histories.
           </p>
         </div>
 
@@ -427,7 +444,7 @@ export default function RecruiterDashboardPage() {
                   onClick={() => handleOpenCandidateChat(cand)}
                   className="flex-1"
                 >
-                  Chat with {cand.name.split(' ')[0]}'s Agent
+                  Chat with {cand.name.split(' ')[0]}&apos;s Agent
                 </Button>
                 <Link href={`/jd-match/${cand.id}`}>
                   <Button
@@ -467,7 +484,7 @@ export default function RecruiterDashboardPage() {
                 </div>
                 <div className="flex flex-col">
                   <h3 className="font-black text-base text-slate-900">
-                    {activeCandidate.name}'s Agent
+                    {activeCandidate.name}&apos;s Agent
                   </h3>
                   <span className="text-xs text-slate-500 font-medium line-clamp-1">
                     Screening for: {selectedTargetRole}
@@ -529,7 +546,7 @@ export default function RecruiterDashboardPage() {
       >
         <div className="flex flex-col gap-4 p-1 text-slate-900">
           <p className="text-xs text-slate-600">
-            Upload any applicant's resume (PDF, DOCX, TXT) to automatically parse their work history and immediately converse with their Living Candidate Agent.
+            Upload any applicant&apos;s resume (PDF, DOCX, TXT) to automatically parse their work history and immediately converse with their Living Candidate Agent.
           </p>
 
           <input

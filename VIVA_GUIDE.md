@@ -85,7 +85,7 @@
 ---
 
 ### D. Semantic Job Description (JD) Matcher
-- **File:** `backend/services/jd-matcher.ts` & `app/api/match/route.ts`
+- **File:** `lib/services/jd-match-service.ts` & `app/api/match/route.ts`
 - **Concept:** Real-time gap analysis between a candidate's resume and target job requirements.
 - **Output:** Overall Match Percentage, Matched Keywords, Missing Skills, and targeted recommendations.
 

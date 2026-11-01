@@ -20,11 +20,26 @@ import { Card, Badge, ProgressRing } from '@/components/ui/Card';
 import { Tabs } from '@/components/ui/Tabs';
 import { getResumeFromStore, getActiveStoredResume } from '@/lib/client-resume-store';
 
+type RubricEntry = { score: number; weight: string; notes: string };
+type GrammarIssue = { original: string; suggestion: string; reason?: string };
+type AnalysisView = {
+  atsScore: number;
+  candidateName?: string;
+  candidateTitle?: string;
+  resumeTitle?: string;
+  formattingIssues?: string[];
+  missingSections?: string[];
+  readabilityScore?: number;
+  overallStrengthScore?: number;
+  grammarIssues?: GrammarIssue[];
+  scoringRubricBreakdown?: Record<string, RubricEntry>;
+};
+
 export default function AnalyzerPage(props: { params: Promise<{ resumeId: string }> }) {
   const params = use(props.params);
   const resumeId = params.resumeId || 'demo-resume-alex-1';
 
-  const [analysis, setAnalysis] = useState<any>(null);
+  const [analysis, setAnalysis] = useState<AnalysisView | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [appliedFixes, setAppliedFixes] = useState<number[]>([]);
@@ -71,8 +86,8 @@ export default function AnalyzerPage(props: { params: Promise<{ resumeId: string
       }
     }
 
-    const constructFallbackAnalysis = () => {
-      const local = getResumeFromStore(resumeId) || getActiveStoredResume();
+    const constructFallbackAnalysis = async (): Promise<AnalysisView> => {
+      const local = (await getResumeFromStore(resumeId)) || (await getActiveStoredResume());
       const candidateName = local?.candidateName || 'Candidate';
       const candidateTitle = local?.candidateTitle || 'Software Engineer';
       const experiences = local?.parsedSections?.experience || [];
@@ -119,9 +134,9 @@ export default function AnalyzerPage(props: { params: Promise<{ resumeId: string
           setLoading(false);
         }, 1500);
       })
-      .catch((err) => {
+      .catch(async (err) => {
         console.warn('Analysis fetch error, utilizing resilient local store:', err);
-        const fallback = constructFallbackAnalysis();
+        const fallback = await constructFallbackAnalysis();
         setTimeout(() => {
           setAnalysis(fallback);
           setLoading(false);
@@ -314,7 +329,7 @@ export default function AnalyzerPage(props: { params: Promise<{ resumeId: string
 
       {activeTab === 'rubric' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {Object.entries(analysis.scoringRubricBreakdown || {}).map(([key, value]: [string, any]) => (
+          {Object.entries(analysis.scoringRubricBreakdown || {}).map(([key, value]: [string, RubricEntry]) => (
             <Card key={key} className="p-6 bg-white flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold capitalize text-gray-900">
@@ -333,7 +348,7 @@ export default function AnalyzerPage(props: { params: Promise<{ resumeId: string
       {activeTab === 'grammar' && (
         <div className="flex flex-col gap-4">
           <div className="text-xs text-gray-500">Review AI grammar & bullet point improvements:</div>
-          {(analysis.grammarIssues || []).map((issue: any, idx: number) => {
+          {(analysis.grammarIssues || []).map((issue: GrammarIssue, idx: number) => {
             const isApplied = appliedFixes.includes(idx);
             return (
               <Card key={idx} className="p-5 bg-white flex flex-col gap-3 border border-gray-200/90">
@@ -351,11 +366,11 @@ export default function AnalyzerPage(props: { params: Promise<{ resumeId: string
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <div className="p-3 bg-red-50/60 border border-red-100 rounded-lg text-red-950">
                     <span className="font-semibold block mb-1 text-red-700">Original Phrasing:</span>
-                    "{issue.original}"
+                    &quot;{issue.original}&quot;
                   </div>
                   <div className="p-3 bg-emerald-50/60 border border-emerald-100 rounded-lg text-emerald-950">
                     <span className="font-semibold block mb-1 text-emerald-700">Suggested Action Phrasing:</span>
-                    "{issue.suggestion}"
+                    &quot;{issue.suggestion}&quot;
                   </div>
                 </div>
 

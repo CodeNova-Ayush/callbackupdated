@@ -83,6 +83,8 @@ Requirements:
   },
 ];
 
+const MATCH_LOADING_STEP = 'Analyzing with AI & computing match score...';
+
 export default function JDMatchPage(props: { params: Promise<{ resumeId: string }> }) {
   const params = use(props.params);
   const router = useRouter();
@@ -92,8 +94,9 @@ export default function JDMatchPage(props: { params: Promise<{ resumeId: string 
   const [jdText, setJdText] = useState(PRESET_JOBS[0].text);
   const [selectedPresetId, setSelectedPresetId] = useState('vercel-ai');
   const [activeTab, setActiveTab] = useState<'missing' | 'matched' | 'tailoring' | 'snapshot'>('tailoring');
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState('');
+  // Initial match runs on mount, so start in the loading state
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingStep, setLoadingStep] = useState(MATCH_LOADING_STEP);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Resume Metadata & Switcher State
@@ -112,6 +115,40 @@ export default function JDMatchPage(props: { params: Promise<{ resumeId: string 
   // Match Result State
   const [matchResult, setMatchResult] = useState<MatchResultOutput | null>(null);
 
+  // Execute Match
+  const handleRunMatch = async (targetResumeId = resumeId, targetJdText = jdText) => {
+    setIsLoading(true);
+    setLoadingStep(MATCH_LOADING_STEP);
+    await executeMatch(targetResumeId, targetJdText);
+  };
+
+  // Fetch match result; only sets state after the request resolves
+  async function executeMatch(targetResumeId: string, targetJdText: string) {
+    try {
+      // The match route loads the owner-scoped resume itself from resumeId.
+      const res = await fetch('/api/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resumeId: targetResumeId,
+          jdText: targetJdText,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.match) {
+          setMatchResult(data.match);
+        }
+      }
+    } catch (err) {
+      console.warn('Match calculation notice:', err);
+    } finally {
+      setIsLoading(false);
+      setLoadingStep('');
+    }
+  }
+
   // Initial Load: Fetch Resume Details & Prior Match
   useEffect(() => {
     let name = 'Candidate';
@@ -124,17 +161,6 @@ export default function JDMatchPage(props: { params: Promise<{ resumeId: string 
         router.replace(`/jd-match/${storedActiveId}`);
         return;
       }
-
-      try {
-        const saved = localStorage.getItem('callback_ai_saved_resume_' + resumeId);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.personalInfo?.fullName) name = parsed.personalInfo.fullName;
-          if (parsed.personalInfo?.title) title = parsed.personalInfo.title;
-          if (parsed.personalInfo?.email) email = parsed.personalInfo.email;
-          setCandidateInfo({ name, title, email });
-        }
-      } catch (e) {}
     }
 
     fetch(`/api/resumes/${resumeId}`)
@@ -142,7 +168,7 @@ export default function JDMatchPage(props: { params: Promise<{ resumeId: string 
       .then((data) => {
         if (data.resume) {
           if (data.resume.sections) {
-            const pInfo = data.resume.sections.find((s: any) => s.sectionType === 'personal_info');
+            const pInfo = data.resume.sections.find((s: { sectionType: string; content: unknown }) => s.sectionType === 'personal_info');
             if (pInfo) {
               try {
                 const parsed = typeof pInfo.content === 'string' ? JSON.parse(pInfo.content) : pInfo.content;
@@ -151,7 +177,7 @@ export default function JDMatchPage(props: { params: Promise<{ resumeId: string 
                 if (parsed.email) email = parsed.email;
               } catch {}
             }
-            const expSec = data.resume.sections.find((s: any) => s.sectionType === 'experience');
+            const expSec = data.resume.sections.find((s: { sectionType: string; content: unknown }) => s.sectionType === 'experience');
             if (expSec) {
               try {
                 const parsed = typeof expSec.content === 'string' ? JSON.parse(expSec.content) : expSec.content;
@@ -176,65 +202,9 @@ export default function JDMatchPage(props: { params: Promise<{ resumeId: string 
       .catch(console.error);
 
     // Auto-run initial match
-    handleRunMatch(resumeId, PRESET_JOBS[0].text);
+    // Loading state starts true (initial useState), so no synchronous setState here
+    executeMatch(resumeId, PRESET_JOBS[0].text);
   }, [resumeId, router]);
-
-  // Execute Match
-  const handleRunMatch = async (targetResumeId = resumeId, targetJdText = jdText) => {
-    setIsLoading(true);
-    setLoadingStep('Analyzing with AI & computing match score...');
-
-    try {
-      let clientFullContext: any = null;
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('callback_ai_saved_resume_' + targetResumeId) || localStorage.getItem('active_resume_data');
-        if (saved) {
-          try {
-            clientFullContext = JSON.parse(saved);
-          } catch {}
-        }
-        if (!clientFullContext) {
-          try {
-            for (let i = 0; i < localStorage.length; i++) {
-              const k = localStorage.key(i);
-              if (k && k.startsWith('callback_ai_saved_resume_')) {
-                const item = localStorage.getItem(k);
-                if (item) {
-                  const parsed = JSON.parse(item);
-                  if (parsed.personalInfo || parsed.experiences) {
-                    clientFullContext = parsed;
-                    break;
-                  }
-                }
-              }
-            }
-          } catch {}
-        }
-      }
-
-      const res = await fetch('/api/match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resumeId: targetResumeId,
-          jdText: targetJdText,
-          candidateContext: clientFullContext,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.match) {
-          setMatchResult(data.match);
-        }
-      }
-    } catch (err) {
-      console.warn('Match calculation notice:', err);
-    } finally {
-      setIsLoading(false);
-      setLoadingStep('');
-    }
-  };
 
   // Handle Direct Resume File Upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -304,7 +274,7 @@ export default function JDMatchPage(props: { params: Promise<{ resumeId: string 
             </h1>
           </div>
           <p className="text-xs lg:text-sm text-slate-500 max-w-2xl leading-relaxed">
-            Compare this candidate's verified resume against any target job posting. Surfaces exact keyword gaps, multi-dimensional fit telemetry, and context-aware bullet rewrites.
+            Compare this candidate&apos;s verified resume against any target job posting. Surfaces exact keyword gaps, multi-dimensional fit telemetry, and context-aware bullet rewrites.
           </p>
         </div>
 
@@ -822,8 +792,8 @@ export default function JDMatchPage(props: { params: Promise<{ resumeId: string 
                   AI Tailored Executive Summary (Optimized for {PRESET_JOBS.find(p => p.id === selectedPresetId)?.company || 'Target Job'}):
                 </span>
                 <p className="text-xs text-[#231F1D] leading-relaxed font-serif italic">
-                  "{matchResult?.tailoredResumeSnapshot?.suggestedSummary ||
-                    `${candidateInfo.name} is an accomplished ${candidateInfo.title} with demonstrated track record scaling high-availability AI systems, handling multi-agent orchestration, and delivering verified business results.`}"
+                  &quot;{matchResult?.tailoredResumeSnapshot?.suggestedSummary ||
+                    `${candidateInfo.name} is an accomplished ${candidateInfo.title} with demonstrated track record scaling high-availability AI systems, handling multi-agent orchestration, and delivering verified business results.`}&quot;
                 </p>
               </div>
 

@@ -1,152 +1,97 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-// Safe authentication provider with robust zero-crash client context
+import { auth_client } from '@/lib/auth-client';
+import { clear_legacy_cover_letter_keys, read_legacy_cover_letters } from '@/lib/client-cover-letter-store';
+import { clear_legacy_resume_keys, read_legacy_resumes } from '@/lib/client-resume-store';
 
-const rawKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
-export const isRealClerkKey = Boolean(
-  rawKey &&
-  rawKey.startsWith('pk_') &&
-  !rawKey.includes('callback.ai') &&
-  !rawKey.includes('your_clerk') &&
-  rawKey !== 'pk_test_Y2xlcmsuY2FsbGJhY2suYWkk'
-);
-
-const DEFAULT_USER = {
-  id: 'user_alex_rivera',
-  fullName: 'Alex Rivera',
-  firstName: 'Alex',
-  lastName: 'Rivera',
-  primaryEmailAddress: { emailAddress: 'alex.rivera@neuralflow.ai' },
-  imageUrl: '',
+const map_user = (session_user: { id: string; name: string; email: string; image?: string | null } | undefined) => {
+  if (!session_user) return null;
+  const parts = session_user.name.split(' ');
+  return {
+    id: session_user.id,
+    fullName: session_user.name,
+    firstName: parts[0] || session_user.name,
+    lastName: parts.slice(1).join(' '),
+    primaryEmailAddress: { emailAddress: session_user.email },
+    imageUrl: session_user.image || '',
+  };
 };
 
-interface AuthContextType {
-  isSignedIn: boolean;
-  isLoaded: boolean;
-  user: typeof DEFAULT_USER | null;
-  signOut: (options?: { redirectUrl?: string }) => Promise<void>;
-  login: (userIdentifier: string, name?: string) => void;
-}
+const migrate_legacy_workspace = async () => {
+  const resumes = read_legacy_resumes();
+  const coverLetters = read_legacy_cover_letters();
+  if (resumes.length === 0 && coverLetters.length === 0) return;
+  const response = await fetch('/api/workspace/import-local', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resumes, coverLetters }),
+  });
+  if (response.ok) {
+    clear_legacy_resume_keys();
+    clear_legacy_cover_letter_keys();
+    localStorage.removeItem('is_authenticated');
+    localStorage.removeItem('user_name');
+    localStorage.removeItem('user_email');
+  }
+};
 
-const LocalAuthContext = createContext<AuthContextType>({
-  isSignedIn: false,
-  isLoaded: true,
-  user: null,
-  signOut: async () => {},
-  login: () => {},
-});
+const cached_profile_prefixes = ['callback_ai_saved_resume_', 'active_resume_data', 'active_candidate_name', 'is_authenticated', 'user_name', 'user_email'];
 
-function LocalAuthProvider({ children }: { children: React.ReactNode }) {
-  const [isSignedIn, setIsSignedIn] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [user, setUser] = useState<typeof DEFAULT_USER | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isAuth = localStorage.getItem('is_authenticated') === 'true';
-      const storedName = localStorage.getItem('user_name');
-      const storedEmail = localStorage.getItem('user_email');
-      if (isAuth && storedEmail && !storedEmail.includes('neuralflow.ai')) {
-        setIsSignedIn(true);
-        setUser({
-          ...DEFAULT_USER,
-          id: 'user_' + (storedEmail ? storedEmail.split('@')[0] : 'candidate'),
-          fullName: storedName || DEFAULT_USER.fullName,
-          firstName: storedName ? storedName.split(' ')[0] : DEFAULT_USER.firstName,
-          lastName: storedName ? storedName.split(' ').slice(1).join(' ') : DEFAULT_USER.lastName,
-          primaryEmailAddress: { emailAddress: storedEmail },
-        });
-      } else {
-        setIsSignedIn(false);
-        setUser(null);
-      }
-      setIsLoaded(true);
-    }
-  }, []);
-
-  const login = (userIdentifier: string, name?: string) => {
-    const finalName = name || userIdentifier.split('@')[0].replace(/[._-]/g, ' ') || 'Candidate';
-    const capName = finalName.charAt(0).toUpperCase() + finalName.slice(1);
-    const email = userIdentifier.includes('@') ? userIdentifier : `${userIdentifier}@candidate.ai`;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('is_authenticated', 'true');
-      localStorage.setItem('user_name', capName);
-      localStorage.setItem('user_email', email);
-      document.cookie = 'callback_auth=1; path=/; max-age=2592000; SameSite=Lax';
-    }
-    setIsSignedIn(true);
-    setUser({
-      ...DEFAULT_USER,
-      id: 'user_' + email.split('@')[0],
-      fullName: capName,
-      firstName: capName.split(' ')[0],
-      lastName: capName.split(' ').slice(1).join(' '),
-      primaryEmailAddress: { emailAddress: email },
-    });
-  };
-
-  const signOut = async (options?: { redirectUrl?: string }) => {
-    setIsSignedIn(false);
-    setUser(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('is_authenticated');
-      localStorage.removeItem('user_name');
-      localStorage.removeItem('user_email');
-      document.cookie = 'callback_auth=; path=/; max-age=0';
-      if (options?.redirectUrl) {
-        window.location.href = options.redirectUrl;
-      }
-    }
-  };
-
-  return (
-    <LocalAuthContext.Provider
-      value={{
-        isSignedIn,
-        isLoaded,
-        user: isSignedIn ? user : null,
-        signOut,
-        login,
-      }}
-    >
-      {children}
-    </LocalAuthContext.Provider>
-  );
-}
+// Resume content cached in the browser must not outlive the session on a shared machine.
+const clear_cached_profile = () => {
+  if (typeof window === 'undefined') return;
+  clear_legacy_resume_keys();
+  clear_legacy_cover_letter_keys();
+  Object.keys(localStorage)
+    .filter((key) => cached_profile_prefixes.some((prefix) => key.startsWith(prefix)))
+    .forEach((key) => localStorage.removeItem(key));
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  return <LocalAuthProvider>{children}</LocalAuthProvider>;
+  const { data: session } = auth_client.useSession();
+  useEffect(() => {
+    if (session?.user) {
+      migrate_legacy_workspace().catch((error) => {
+        console.error('Legacy workspace import failed:', error);
+      });
+    }
+  }, [session?.user?.id]);
+  return <>{children}</>;
 }
 
 export function useAppAuth() {
-  const localCtx = useContext(LocalAuthContext);
-
+  const { data: session, isPending } = auth_client.useSession();
+  const user = map_user(session?.user);
   return {
-    isLoaded: localCtx.isLoaded,
-    isSignedIn: localCtx.isSignedIn,
-    userId: localCtx.user?.id || null,
-    sessionId: 'sess_local_dev',
-    signOut: localCtx.signOut,
-    login: localCtx.login,
-    getToken: async () => 'mock_dev_token',
+    isLoaded: !isPending,
+    isSignedIn: Boolean(session?.user),
+    userId: user?.id || null,
+    sessionId: session?.session?.id || null,
+    signOut: async (options?: { redirectUrl?: string }) => {
+      await auth_client.signOut();
+      clear_cached_profile();
+      if (options?.redirectUrl && typeof window !== 'undefined') {
+        window.location.href = options.redirectUrl;
+      }
+    },
+    getToken: async () => null,
   };
 }
 
 export function useAppUser() {
-  const localCtx = useContext(LocalAuthContext);
-
+  const { data: session, isPending } = auth_client.useSession();
   return {
-    isLoaded: localCtx.isLoaded,
-    isSignedIn: localCtx.isSignedIn,
-    user: localCtx.user,
-    login: localCtx.login,
+    isLoaded: !isPending,
+    isSignedIn: Boolean(session?.user),
+    user: map_user(session?.user),
   };
 }
 
 export const useUser = useAppUser;
 export const useAuth = useAppAuth;
+export const isRealClerkKey = false;
 
 export function UserButton({ afterSignOutUrl = '/' }: { afterSignOutUrl?: string }) {
   const { isSignedIn, signOut } = useAppAuth();
@@ -165,12 +110,7 @@ export function UserButton({ afterSignOutUrl = '/' }: { afterSignOutUrl?: string
   }
 
   const initials = user?.fullName
-    ? user.fullName
-        .split(' ')
-        .map((n: string) => n[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
+    ? user.fullName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase()
     : 'U';
 
   return (
@@ -183,22 +123,18 @@ export function UserButton({ afterSignOutUrl = '/' }: { afterSignOutUrl?: string
         {initials}
       </button>
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50">
           <div className="px-3 py-1.5 border-b border-slate-100">
             <p className="text-xs font-bold text-slate-800">{user?.fullName || 'Candidate'}</p>
-            <p className="text-[10px] text-slate-400 truncate">{user?.primaryEmailAddress?.emailAddress || 'candidate@pwioi.com'}</p>
+            <p className="text-[10px] text-slate-400 truncate">{user?.primaryEmailAddress?.emailAddress}</p>
           </div>
-          <Link
-            href="/dashboard"
-            onClick={() => setIsOpen(false)}
-            className="block px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 font-medium"
-          >
+          <Link href="/dashboard" onClick={() => setIsOpen(false)} className="block px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 font-medium">
             Dashboard
           </Link>
           <button
             type="button"
             onClick={async () => {
-              if (signOut) await signOut();
+              await signOut();
               setIsOpen(false);
               window.location.href = afterSignOutUrl;
             }}

@@ -54,7 +54,7 @@ export const TemplateMicroPreview: React.FC<TemplateMicroPreviewProps> = memo(({
       >
         <ResumeTemplateRenderer
           templateId={templateId as TemplateId}
-          data={MOCK_PERSONA as any}
+          data={MOCK_PERSONA}
           zoomLevel={100}
           isMicroPreview={true}
         />

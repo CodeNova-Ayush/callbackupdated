@@ -1,4 +1,4 @@
-import { SafeClerkProvider } from "@/components/auth/SafeClerkProvider";
+import { AuthProvider } from '@/components/auth/AuthProvider';
 import type { Metadata } from 'next';
 import './globals.css';
 
@@ -12,8 +12,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const clerkPubKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
-
   return (
     <html lang="en" className="h-full antialiased">
       <head>
@@ -25,9 +23,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-[#F5F9FB] text-slate-900 font-sans">
-        <SafeClerkProvider publishableKey={clerkPubKey}>
-          {children}
-        </SafeClerkProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

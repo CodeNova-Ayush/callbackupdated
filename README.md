@@ -197,9 +197,6 @@ CallBack.ai/
 │       ├── Input.tsx
 │       └── Modal.tsx
 │
-├── database/                          # Database Connection & Singleton
-│   └── db.ts                          # Prisma Database Client Singleton
-│
 ├── lib/                               # Core Utilities & Shared Logic
 │   └── services/
 │       ├── ats-service.ts             # ATS Heuristics & Scoring Engine

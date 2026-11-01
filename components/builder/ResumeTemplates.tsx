@@ -304,8 +304,72 @@ export const MOCK_PERSONA = {
   languages: ['English (Native)', 'German (Professional)', 'Spanish (Working)'],
 };
 
+interface ResumeExpItem {
+  id?: string;
+  role: string;
+  company: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  bullets?: string[];
+}
+interface ResumeEduItem {
+  id?: string;
+  degree: string;
+  institution: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  gpa?: string;
+}
+interface ResumeProjItem {
+  id?: string;
+  title?: string;
+  name?: string;
+  techStack?: string;
+  tech?: string;
+  description?: string;
+  bullets?: string[];
+}
+
+type FlowcvSkill = string | { name: string; dots: number };
+interface FlowcvLanguage {
+  language: string;
+  dots?: number;
+  proficiency?: string;
+}
+interface FlowcvAward {
+  title: string;
+  org: string;
+}
+interface FlowcvPersona {
+  fullName: string;
+  title: string;
+  avatar?: string;
+  email: string;
+  phone: string;
+  location: string;
+  linkedin?: string;
+  website?: string;
+  summary: string;
+  nationality?: string;
+  dob?: string;
+  experiences: ResumeExpItem[];
+  education: ResumeEduItem[];
+  skills?: FlowcvSkill[];
+  skillsCategories?: { name: string; desc: string }[];
+  languages?: (string | FlowcvLanguage)[];
+  awards?: (string | FlowcvAward)[];
+  certificates?: string[];
+  quote?: { text: string; author: string };
+}
+
+type PersonalInfoFields = Partial<ResumeData['personalInfo']>;
+type LooseResumeData = Partial<Omit<ResumeData, 'personalInfo'>> &
+  PersonalInfoFields & { personalInfo?: PersonalInfoFields };
+
 // FlowCV Specific Showcase Personas matching exact FlowCV.com gallery references
-export const FLOWCV_PERSONAS: Record<string, any> = {
+export const FLOWCV_PERSONAS: Record<string, FlowcvPersona> = {
   flowcv_atlantic_blue: {
     fullName: 'Brian T. Wayne',
     title: 'Business Development Consultant',
@@ -1084,71 +1148,43 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
   zoomLevel = 100,
   isMicroPreview = false,
 }) => {
-  const safeData = data || (MOCK_PERSONA as any);
-  const pInfo = safeData?.personalInfo || (safeData as any) || MOCK_PERSONA.personalInfo;
+  const safeData: LooseResumeData = data || MOCK_PERSONA;
+  const pInfo: PersonalInfoFields = safeData?.personalInfo || safeData || MOCK_PERSONA.personalInfo;
 
   // Check if we should use persona defaults (during micro preview or default mock data)
   const isDefaultPersona = !data || pInfo?.fullName === 'Alex Morgan' || !pInfo?.fullName;
-  const flowcvPersona = (FLOWCV_PERSONAS as any)[templateId];
+  const flowcvPersona: FlowcvPersona | undefined = FLOWCV_PERSONAS[templateId];
   const useFlowPersona = flowcvPersona && (isMicroPreview || isDefaultPersona);
 
   // Candidate basic attributes
   const fullName = useFlowPersona
     ? flowcvPersona.fullName
-    : pInfo?.fullName || (safeData as any)?.fullName || MOCK_PERSONA.fullName;
+    : pInfo?.fullName || safeData?.fullName || MOCK_PERSONA.fullName;
   const email = useFlowPersona
     ? flowcvPersona.email
-    : pInfo?.email || (safeData as any)?.email || MOCK_PERSONA.email;
+    : pInfo?.email || safeData?.email || MOCK_PERSONA.email;
   const phone = useFlowPersona
     ? flowcvPersona.phone
-    : pInfo?.phone || (safeData as any)?.phone || MOCK_PERSONA.phone;
+    : pInfo?.phone || safeData?.phone || MOCK_PERSONA.phone;
   const location = useFlowPersona
     ? flowcvPersona.location
-    : pInfo?.location || (safeData as any)?.location || MOCK_PERSONA.location;
+    : pInfo?.location || safeData?.location || MOCK_PERSONA.location;
   const linkedin = useFlowPersona
     ? flowcvPersona.linkedin
-    : pInfo?.linkedin || (safeData as any)?.linkedin || MOCK_PERSONA.linkedin;
-  const github = pInfo?.github || (safeData as any)?.github || MOCK_PERSONA.github;
+    : pInfo?.linkedin || safeData?.linkedin || MOCK_PERSONA.linkedin;
+  const github = pInfo?.github || safeData?.github || MOCK_PERSONA.github;
   const website = useFlowPersona
     ? flowcvPersona.website || MOCK_PERSONA.website
-    : pInfo?.website || (safeData as any)?.website || MOCK_PERSONA.website;
+    : pInfo?.website || safeData?.website || MOCK_PERSONA.website;
   const summary = useFlowPersona
     ? flowcvPersona.summary
-    : pInfo?.summary || (safeData as any)?.summary || MOCK_PERSONA.summary;
+    : pInfo?.summary || safeData?.summary || MOCK_PERSONA.summary;
 
   const rawExp = useFlowPersona ? flowcvPersona.experiences : safeData?.experiences;
   const rawEdu = useFlowPersona ? flowcvPersona.education : safeData?.education;
   const rawProj = safeData?.projects;
   const rawSkills = useFlowPersona ? flowcvPersona.skills : safeData?.skills;
   const rawCerts = useFlowPersona ? flowcvPersona.certificates : safeData?.certifications;
-
-  interface ResumeExpItem {
-    id?: string;
-    role: string;
-    company: string;
-    location?: string;
-    startDate?: string;
-    endDate?: string;
-    bullets?: string[];
-  }
-  interface ResumeEduItem {
-    id?: string;
-    degree: string;
-    institution: string;
-    location?: string;
-    startDate?: string;
-    endDate?: string;
-    gpa?: string;
-  }
-  interface ResumeProjItem {
-    id?: string;
-    title?: string;
-    name?: string;
-    techStack?: string;
-    tech?: string;
-    description?: string;
-    bullets?: string[];
-  }
 
   const expList: ResumeExpItem[] = (Array.isArray(rawExp) && rawExp.length > 0 ? rawExp : MOCK_PERSONA.experiences) as ResumeExpItem[];
   const eduList: ResumeEduItem[] = (Array.isArray(rawEdu) && rawEdu.length > 0 ? rawEdu : MOCK_PERSONA.education) as ResumeEduItem[];
@@ -1159,6 +1195,11 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
       ? rawCerts
       : MOCK_PERSONA.certifications
   ) as string[];
+
+  // Persona skills rendered as plain labels (rated-skill objects are rendered by their own templates).
+  const flowSkillNames: string[] = (flowcvPersona?.skills ?? []).filter(
+    (sk): sk is string => typeof sk === 'string'
+  );
 
   const candidateRole = useFlowPersona
     ? flowcvPersona.title
@@ -1875,7 +1916,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
 
             {summary && (
               <div className="p-3 bg-slate-100 rounded text-[11px] text-slate-800 border-l-3 border-emerald-600 leading-relaxed font-mono">
-                // {summary}
+                {'// '}{summary}
               </div>
             )}
 
@@ -2257,7 +2298,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
             {expList.length > 0 && (
               <div className="flex flex-col gap-2">
                 <div className="bg-black text-white px-2.5 py-1 inline-block self-start font-black text-[11.5px] uppercase tracking-wider">
-                  // WORK EXPERIENCE
+                  {'// WORK EXPERIENCE'}
                 </div>
                 <div className="flex flex-col gap-3">
                   {expList.map((exp) => (
@@ -2282,7 +2323,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
             {projList.length > 0 && (
               <div className="flex flex-col gap-2 mt-1">
                 <div className="bg-black text-white px-2.5 py-1 inline-block self-start font-black text-[11.5px] uppercase tracking-wider">
-                  // SYSTEMS BUILT & SHIPPED
+                  {'// SYSTEMS BUILT & SHIPPED'}
                 </div>
                 <div className="flex flex-col gap-2.5">
                   {projList.map((p) => (
@@ -3879,7 +3920,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Professional Experience
             </h2>
             <div className="flex flex-col gap-3.5 font-sans">
-              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: ResumeExpItem, idx: number) => (
                 <div key={exp.id || idx} className="grid grid-cols-12 gap-4 text-[11px]">
                   <div className="col-span-3 text-slate-500 font-medium">
                     <span>{exp.startDate} – {exp.endDate}</span>
@@ -3907,7 +3948,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Education
             </h2>
             <div className="flex flex-col gap-2.5 font-sans">
-              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: ResumeEduItem, idx: number) => (
                 <div key={edu.id || idx} className="grid grid-cols-12 gap-4 text-[11px]">
                   <div className="col-span-3 text-slate-500 font-medium">
                     <span>{edu.startDate} – {edu.endDate}</span>
@@ -3968,7 +4009,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
             <div className="col-span-4 flex flex-col gap-1 border-l border-slate-200 pl-3">
               <span className="font-bold text-slate-900 uppercase text-[10.5px] tracking-wider">Favorite Quote</span>
               <span className="text-slate-600 italic text-[10.5px] leading-tight">
-                "The best product is the one that solves a problem for the customer."
+                &quot;The best product is the one that solves a problem for the customer.&quot;
               </span>
               <span className="text-slate-500 text-[9.5px]">— Eric Ries</span>
             </div>
@@ -4270,7 +4311,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
                   <span className="text-slate-300 text-[9.5px]">University of Southern California, 2014</span>
                 </div>
                 <div>
-                  <span className="font-bold block text-white">Dean's List</span>
+                  <span className="font-bold block text-white">Dean&apos;s List</span>
                   <span className="text-slate-300 text-[9.5px]">University of California, Los Angeles, 2015-2016</span>
                 </div>
               </div>
@@ -4288,7 +4329,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
                 </h2>
               </div>
               <div className="flex flex-col gap-4">
-                {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 2).map((exp: any, idx: number) => (
+                {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 2).map((exp: ResumeExpItem, idx: number) => (
                   <div key={exp.id || idx} className="flex flex-col gap-1">
                     <div className="flex justify-between items-baseline">
                       <span className="font-extrabold text-[12px] text-slate-900">{exp.company}</span>
@@ -4314,7 +4355,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
                 </h2>
               </div>
               <div className="flex flex-col gap-3">
-                {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: any, idx: number) => (
+                {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: ResumeEduItem, idx: number) => (
                   <div key={edu.id || idx} className="flex flex-col text-[11px]">
                     <div className="flex justify-between items-baseline">
                       <span className="font-bold text-slate-900">{edu.degree}</span>
@@ -4335,7 +4376,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
                 </h2>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10.5px] text-slate-700">
-                {(useFlowPersona ? flowcvPersona.skills : skillList.slice(0, 8)).map((sk: string, idx: number) => (
+                {(useFlowPersona ? flowSkillNames : skillList.slice(0, 8)).map((sk: string, idx: number) => (
                   <div key={idx} className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-900 shrink-0" />
                     <span>{sk}</span>
@@ -4404,7 +4445,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Professional Experience
             </h2>
             <div className="flex flex-col gap-3.5">
-              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: ResumeExpItem, idx: number) => (
                 <div key={exp.id || idx} className="grid grid-cols-12 gap-4 text-[11px]">
                   <div className="col-span-3 text-right text-slate-500 font-medium leading-tight">
                     <span>{exp.startDate} – {exp.endDate}</span>
@@ -4452,7 +4493,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Education
             </h2>
             <div className="flex flex-col gap-2">
-              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: ResumeEduItem, idx: number) => (
                 <div key={edu.id || idx} className="grid grid-cols-12 gap-4 text-[11px]">
                   <div className="col-span-3 text-right text-slate-500 font-medium leading-tight">
                     <span>{edu.startDate} – {edu.endDate}</span>
@@ -4473,7 +4514,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Skills
             </h2>
             <div className="grid grid-cols-3 gap-x-4 gap-y-1.5 text-center text-[11px] text-slate-700">
-              {(useFlowPersona ? flowcvPersona.skills : skillList.slice(0, 6)).map((sk: string, idx: number) => (
+              {(useFlowPersona ? flowSkillNames : skillList.slice(0, 6)).map((sk: string, idx: number) => (
                 <div key={idx} className="flex items-center justify-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-900 shrink-0" />
                   <span>{sk}</span>
@@ -4572,7 +4613,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
                 Professional Experience
               </h2>
               <div className="flex flex-col gap-3.5">
-                {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: any, idx: number) => (
+                {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: ResumeExpItem, idx: number) => (
                   <div key={exp.id || idx} className="flex flex-col gap-1 text-[11px]">
                     <div className="flex justify-between items-baseline font-bold text-slate-900">
                       <span>{exp.company}, {exp.role}</span>
@@ -4611,7 +4652,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               <h2 className="text-[12.5px] font-bold text-slate-900 border-b border-slate-900 pb-0.5 uppercase tracking-wider">
                 Education
               </h2>
-              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: ResumeEduItem, idx: number) => (
                 <div key={edu.id || idx} className="flex justify-between items-baseline text-[11px]">
                   <div>
                     <span className="font-bold text-slate-900 block">{edu.institution}</span>
@@ -4828,7 +4869,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Professional Experience
             </h2>
             <div className="flex flex-col gap-3.5">
-              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: ResumeExpItem, idx: number) => (
                 <div key={exp.id || idx} className="grid grid-cols-12 gap-4 text-[11px]">
                   <div className="col-span-3 text-right text-slate-500 font-medium">
                     <span>{exp.startDate} – {exp.endDate}</span>
@@ -4873,7 +4914,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Education
             </h2>
             <div className="flex flex-col gap-2">
-              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: ResumeEduItem, idx: number) => (
                 <div key={edu.id || idx} className="grid grid-cols-12 gap-4 text-[11px]">
                   <div className="col-span-3 text-right text-slate-500 font-medium">
                     <span>{edu.startDate} – {edu.endDate}</span>
@@ -4893,7 +4934,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Skills
             </h2>
             <div className="grid grid-cols-3 gap-x-4 gap-y-1.5 text-center text-[11px] text-slate-700">
-              {(useFlowPersona ? flowcvPersona.skills : skillList.slice(0, 6)).map((sk: string, idx: number) => (
+              {(useFlowPersona ? flowSkillNames : skillList.slice(0, 6)).map((sk: string, idx: number) => (
                 <div key={idx} className="flex items-center justify-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-900 shrink-0" />
                   <span>{sk}</span>
@@ -4965,7 +5006,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Professional Experience
             </h2>
             <div className="flex flex-col gap-3.5 font-sans">
-              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: ResumeExpItem, idx: number) => (
                 <div key={exp.id || idx} className="flex flex-col gap-1 text-[11px]">
                   <div className="flex justify-between items-baseline">
                     <span className="font-bold text-slate-900 text-[12px] font-serif">{exp.role}</span>
@@ -5008,7 +5049,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Education
             </h2>
             <div className="flex flex-col gap-2 font-sans">
-              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: ResumeEduItem, idx: number) => (
                 <div key={edu.id || idx} className="flex justify-between items-baseline text-[11px]">
                   <div>
                     <span className="font-bold text-slate-900 font-serif block">{edu.degree}</span>
@@ -5026,7 +5067,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Skills
             </h2>
             <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-[11px] text-slate-700 font-sans">
-              {(useFlowPersona ? flowcvPersona.skills : skillList.slice(0, 8)).map((sk: string, idx: number) => (
+              {(useFlowPersona ? flowSkillNames : skillList.slice(0, 8)).map((sk: string, idx: number) => (
                 <div key={idx} className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-900 shrink-0" />
                   <span>{sk}</span>
@@ -5097,7 +5138,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
           <div className="flex flex-col gap-2.5 border-b border-slate-300 pb-3">
             <span className="text-[11.5px] font-bold uppercase tracking-wider text-slate-500">Professional Experience</span>
             <div className="flex flex-col gap-3.5">
-              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: ResumeExpItem, idx: number) => (
                 <div key={exp.id || idx} className="flex flex-col gap-1 text-[11px]">
                   <div className="flex justify-between items-baseline font-bold text-slate-950">
                     <span>{exp.company}, <span className="font-medium text-slate-700 italic">{exp.role}</span></span>
@@ -5131,7 +5172,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
           {/* Education */}
           <div className="flex flex-col gap-2 border-b border-slate-300 pb-3">
             <span className="text-[11.5px] font-bold uppercase tracking-wider text-slate-500">Education</span>
-            {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: any, idx: number) => (
+            {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: ResumeEduItem, idx: number) => (
               <div key={edu.id || idx} className="flex justify-between items-baseline text-[11px]">
                 <div>
                   <span className="font-bold text-slate-900">{edu.institution}</span>
@@ -5146,7 +5187,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
           <div className="flex flex-col gap-1.5 border-b border-slate-300 pb-3">
             <span className="text-[11.5px] font-bold uppercase tracking-wider text-slate-500">Skills</span>
             <p className="text-[10.5px] text-slate-800 leading-relaxed font-medium">
-              {(useFlowPersona ? flowcvPersona.skills : skillList.slice(0, 14)).join(' | ')}
+              {(useFlowPersona ? flowSkillNames : skillList.slice(0, 14)).join(' | ')}
             </p>
           </div>
 
@@ -5213,7 +5254,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Professional Experience
             </h2>
             <div className="flex flex-col gap-3.5">
-              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.experiences : expList).slice(0, 3).map((exp: ResumeExpItem, idx: number) => (
                 <div key={exp.id || idx} className="flex flex-col gap-1 text-[11px]">
                   <div className="flex justify-between items-baseline font-bold text-slate-900">
                     <span>{exp.role}, <span className="text-blue-800">{exp.company}</span></span>
@@ -5252,7 +5293,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Education
             </h2>
             <div className="flex flex-col gap-1.5">
-              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: any, idx: number) => (
+              {(useFlowPersona ? flowcvPersona.education : eduList).slice(0, 2).map((edu: ResumeEduItem, idx: number) => (
                 <div key={edu.id || idx} className="flex justify-between items-baseline text-[11px]">
                   <div>
                     <span className="font-bold text-slate-900">{edu.degree}</span>
@@ -5270,7 +5311,7 @@ export const ResumeTemplateRenderer: React.FC<ResumeTemplateProps> = ({
               Skills
             </h2>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-[11px] text-slate-700">
-              {(useFlowPersona ? flowcvPersona.skills : skillList.slice(0, 8)).map((sk: string, idx: number) => (
+              {(useFlowPersona ? flowSkillNames : skillList.slice(0, 8)).map((sk: string, idx: number) => (
                 <div key={idx} className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-700 shrink-0" />
                   <span>{sk}</span>

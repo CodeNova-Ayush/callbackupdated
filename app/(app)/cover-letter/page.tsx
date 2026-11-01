@@ -38,19 +38,16 @@ export default function CoverLetterDashboardPage() {
 
   // Load existing letters
   useEffect(() => {
-    const letters = getStoredCoverLetters();
-    setSavedLetters(letters);
-    setIsLoaded(true);
-
+    const load = async () => {
+      setSavedLetters(await getStoredCoverLetters());
+      setIsLoaded(true);
+    };
+    load();
     const handleSaved = () => {
-      setSavedLetters(getStoredCoverLetters());
+      getStoredCoverLetters().then(setSavedLetters);
     };
     window.addEventListener('cover_letter_saved', handleSaved);
-    window.addEventListener('storage', handleSaved);
-    return () => {
-      window.removeEventListener('cover_letter_saved', handleSaved);
-      window.removeEventListener('storage', handleSaved);
-    };
+    return () => window.removeEventListener('cover_letter_saved', handleSaved);
   }, []);
 
   // Filter templates
@@ -65,26 +62,22 @@ export default function CoverLetterDashboardPage() {
   });
 
   // Handler: Create from Template
-  const handleCreateWithTemplate = (templateId: string) => {
-    const newLetter = createNewCoverLetter(templateId);
+  const handleCreateWithTemplate = async (templateId: string) => {
+    const newLetter = await createNewCoverLetter(templateId);
     router.push(`/cover-letter/${newLetter.id}`);
   };
 
-  // Handler: Duplicate
-  const handleDuplicate = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const dup = duplicateCoverLetter(id);
-    if (dup) {
-      setSavedLetters(getStoredCoverLetters());
-    }
+  const handleDuplicate = async (id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    const dup = await duplicateCoverLetter(id);
+    if (dup) setSavedLetters(await getStoredCoverLetters());
   };
 
-  // Handler: Delete
-  const handleDelete = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = async (id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
     if (confirm('Are you sure you want to delete this cover letter?')) {
-      deleteCoverLetter(id);
-      setSavedLetters(getStoredCoverLetters());
+      await deleteCoverLetter(id);
+      setSavedLetters(await getStoredCoverLetters());
     }
   };
 
@@ -327,7 +320,7 @@ export default function CoverLetterDashboardPage() {
               <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <h3 className="text-base font-bold text-slate-800">No templates found</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Try searching for something else like "classic", "split", or "minimal".
+                Try searching for something else like &quot;classic&quot;, &quot;split&quot;, or &quot;minimal&quot;.
               </p>
               <button
                 onClick={() => {

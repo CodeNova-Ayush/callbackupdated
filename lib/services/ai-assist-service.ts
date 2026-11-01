@@ -48,7 +48,7 @@ Return ONLY a valid JSON object matching this schema:
 }`;
 
   try {
-    const llmRes = await executeMultiProviderLLM({
+    const llmRes = await executeMultiProviderLLM<{ enhancedBullet?: string; improvements?: unknown; extractedSkills?: unknown }>({
       systemPrompt: 'You are an elite ATS resume optimization engine. Return pure JSON only.',
       userPrompt: prompt,
       jsonMode: true,

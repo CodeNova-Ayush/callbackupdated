@@ -1,122 +1,49 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { memoryResumesCache, defaultCandidateResume, saveResumeToMemory } from '@/lib/services/resume-service';
+import { bad_request, guard_user, guard_write, not_found } from '@/lib/api-guard';
+import { limits, text, ValidationError } from '@/lib/validate';
+import { format_resume_list_item, getUserResumes } from '@/lib/services/resume-service';
 
 export async function GET() {
-  try {
-    const resumes = await db.resume.findMany({
-      include: {
-        analysisResults: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-        verificationClaims: true,
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    const formattedMap = new Map<string, any>();
-
-    // 1. Add DB Resumes
-    for (const r of resumes) {
-      const latestAnalysis = r.analysisResults?.[0];
-      formattedMap.set(r.id, {
-        id: r.id,
-        title: r.title,
-        updatedAt: new Date(r.updatedAt).toLocaleDateString(undefined, {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        atsScore: latestAnalysis?.atsScore || 94,
-        trustScore: r.verificationClaims?.length ? Math.round((r.verificationClaims.filter(c => c.status === 'verified').length / r.verificationClaims.length) * 100) : 96,
-        isActive: r.isActive,
-        template: 'Executive Two-Column',
-      });
-    }
-
-    // 2. Add In-Memory Cached Resumes (Newly imported resumes)
-    for (const [id, r] of memoryResumesCache.entries()) {
-      if (!formattedMap.has(id)) {
-        formattedMap.set(id, {
-          id: r.id,
-          title: r.title,
-          updatedAt: 'Just now',
-          atsScore: r.analysisResults?.[0]?.atsScore || 96,
-          trustScore: 98,
-          isActive: r.isActive ?? true,
-          template: 'Executive Two-Column',
-        });
-      }
-    }
-
-    // 3. Ensure default resume if empty
-    if (formattedMap.size === 0) {
-      formattedMap.set(defaultCandidateResume.id, {
-        id: defaultCandidateResume.id,
-        title: defaultCandidateResume.title,
-        updatedAt: 'Demo Profile',
-        atsScore: 96,
-        trustScore: 99,
-        isActive: true,
-        template: 'Executive Two-Column',
-      });
-    }
-
-    return NextResponse.json({ resumes: Array.from(formattedMap.values()) });
-  } catch (error) {
-    console.error('Failed to fetch resumes, falling back to cache:', error);
-    const inMemory = Array.from(memoryResumesCache.values()).map((r) => ({
-      id: r.id,
-      title: r.title,
-      updatedAt: 'Active',
-      atsScore: 96,
-      trustScore: 98,
-      isActive: true,
-      template: 'Executive Two-Column',
-    }));
-    return NextResponse.json({ resumes: inMemory.length > 0 ? inMemory : [defaultCandidateResume] });
-  }
+  const { user, response } = await guard_user();
+  if (!user) return response;
+  const resumes = await getUserResumes(user.id);
+  return NextResponse.json({ resumes: resumes.map(format_resume_list_item) });
 }
 
 export async function POST(request: Request) {
+  const { user, response } = await guard_user();
+  if (!user) return response;
+  const limited = guard_write(user.id);
+  if (limited) return limited;
   try {
     const body = await request.json();
-    const { title, template = 'classic_ats', sections = [] } = body;
-    const resumeId = `resume-${Date.now()}`;
-
-    const newResume = {
-      id: resumeId,
-      title: title || 'New Resume',
-      template: template,
-      isActive: true,
-      sections: sections.map((s: any, idx: number) => ({
-        id: `sec-${Date.now()}-${idx}`,
-        resumeId,
-        sectionType: s.sectionType || 'custom',
-        order: s.orderIndex ?? idx,
-        content: typeof s.content === 'string' ? s.content : JSON.stringify(s.content || {}),
-      })),
-      analysisResults: [
-        {
-          atsScore: 96,
-          readabilityScore: 95,
-          overallStrengthScore: 95,
-          grammarIssuesJson: JSON.stringify([]),
+    const title = text(body.title, limits.title, 'Untitled Resume');
+    const template = text(body.template, limits.shortField, 'classic_ats');
+    await db.resume.updateMany({ where: { userId: user.id, isActive: true }, data: { isActive: false } });
+    const resume = await db.resume.create({
+      data: {
+        userId: user.id,
+        title,
+        template,
+        isActive: true,
+        sections: {
+          create: [
+            { sectionType: 'personal_info', order: 0, content: JSON.stringify({ fullName: user.name, email: user.email }) },
+            { sectionType: 'experience', order: 1, content: '[]' },
+            { sectionType: 'education', order: 2, content: '[]' },
+            { sectionType: 'skills', order: 3, content: '[]' },
+            { sectionType: 'projects', order: 4, content: '[]' },
+          ],
         },
-      ],
-      verificationClaims: [],
-    };
-
-    saveResumeToMemory(newResume);
-
-    return NextResponse.json({
-      success: true,
-      id: resumeId,
-      resume: newResume,
+      },
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to create resume' }, { status: 500 });
+    return NextResponse.json({ success: true, id: resume.id, resume });
+  } catch (error) {
+    if (error instanceof ValidationError) return bad_request(error.message);
+    console.error('Failed to create resume:', error instanceof Error ? error.message : 'unknown error');
+    return NextResponse.json({ error: 'Failed to create resume' }, { status: 500 });
   }
 }
+
+export const empty_not_found = not_found;

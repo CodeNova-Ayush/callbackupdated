@@ -65,7 +65,7 @@ export default function GetStartedChoicePage() {
       window.dispatchEvent(new Event('active_resume_changed'));
 
       router.push(`/builder/${resumeId}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to create resume:', err);
       // Fallback
       const fallbackId = `resume-${Date.now()}`;
@@ -139,9 +139,9 @@ export default function GetStartedChoicePage() {
       setTimeout(() => {
         router.push(`/builder/${importedId}`);
       }, 600);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Upload error:', err);
-      setErrorMessage(err.message || 'Could not parse resume. Please try another file.');
+      setErrorMessage((err instanceof Error && err.message) || 'Could not parse resume. Please try another file.');
       setIsUploading(false);
     }
   };

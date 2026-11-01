@@ -3,13 +3,17 @@
 Run these before deployment:
 
 ```bash
+npm run lint
+npm run typecheck
+npm test
 npm run build
-npx tsc --noEmit
 ```
+
+CI (`.github/workflows/ci.yml`) runs the same commands on every pull request.
 
 Manual checks:
 
-- sign in with Clerk
+- sign in with email and password
 - import a pasted resume
 - open the imported resume in builder
 - switch all templates

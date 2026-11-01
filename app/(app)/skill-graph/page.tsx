@@ -31,25 +31,27 @@ interface SkillNode {
   evidence: { title: string; snippet: string }[];
 }
 
+interface ResumeSectionRow {
+  sectionType: string;
+  content: unknown;
+}
+
+interface ExperienceEntry {
+  company?: string;
+  role?: string;
+  bullets?: string[];
+}
+
+interface ProjectEntry {
+  title?: string;
+  techStack?: string;
+  bullets?: string[];
+}
+
 export default function SkillGraphPage() {
-  const [candidateName, setCandidateName] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const active = getActiveStoredResume();
-      if (active?.candidateName) return active.candidateName;
-      const stored = localStorage.getItem('active_candidate_name');
-      if (stored && stored !== 'Alex Rivera') return stored;
-    }
-    return 'Candidate Profile';
-  });
+  const [candidateName, setCandidateName] = useState('Candidate Profile');
   const [allResumes, setAllResumes] = useState<{ id: string; title: string }[]>([]);
-  const [activeResumeId, setActiveResumeId] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const active = getActiveStoredResume();
-      if (active?.id) return active.id;
-      return localStorage.getItem('active_resume_id') || 'demo-resume-alex-1';
-    }
-    return 'demo-resume-alex-1';
-  });
+  const [activeResumeId, setActiveResumeId] = useState('');
   const [skills, setSkills] = useState<SkillNode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -73,74 +75,36 @@ export default function SkillGraphPage() {
 
   // Load Resumes
   useEffect(() => {
-    const localResumes = getStoredResumes().map((r) => ({ id: r.id, title: r.title }));
-    const activeStored = getActiveStoredResume();
-
-    if (activeStored) {
-      setActiveResumeId(activeStored.id);
-      setCandidateName(activeStored.candidateName);
-      loadSkillGraph(activeStored.id);
-    }
-
-    fetch('/api/resumes')
-      .then((res) => res.json())
-      .then((data) => {
-        const serverList = Array.isArray(data.resumes) ? data.resumes : [];
-        const map = new Map<string, any>();
-        for (const lr of localResumes) map.set(lr.id, lr);
-        for (const r of serverList) map.set(r.id, r);
-
-        const merged = Array.from(map.values());
-        if (merged.length > 0) {
-          setAllResumes(merged);
-          if (!activeStored) {
-            const stored = typeof window !== 'undefined' ? localStorage.getItem('active_resume_id') : null;
-            const target = stored && merged.some((r: any) => r.id === stored) ? stored : merged[0].id;
-            setActiveResumeId(target);
-            loadSkillGraph(target);
-          }
-        }
-      })
-      .catch(() => {
-        if (localResumes.length > 0) {
-          setAllResumes(localResumes);
-          loadSkillGraph(localResumes[0].id);
-        } else {
-          loadSkillGraph('demo-resume-alex-1');
-        }
-      });
+    const load = async () => {
+      const stored = await getStoredResumes();
+      const activeStored = await getActiveStoredResume();
+      const list = stored.map((item) => ({ id: item.id, title: item.title }));
+      setAllResumes(list);
+      const target = activeStored || stored[0];
+      if (!target) return;
+      setActiveResumeId(target.id);
+      setCandidateName(target.candidateName);
+      fetchSkillGraph(target.id);
+    };
+    load();
   }, []);
 
   // Load Active Resume Skills & Evidence
-  const loadSkillGraph = async (rId: string) => {
-    setIsLoading(true);
+  // Callers set isLoading(true) first (initial state or the resume switcher), so this only sets state after fetching
+  async function fetchSkillGraph(rId: string) {
     let parsedSkills: string[] = [];
-    let experiences: any[] = [];
-    let projects: any[] = [];
+    let experiences: ExperienceEntry[] = [];
+    let projects: ProjectEntry[] = [];
     let name = 'Candidate';
-
-    // 1. Check local storage
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('callback_ai_saved_resume_' + rId);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.personalInfo?.fullName) name = parsed.personalInfo.fullName;
-          if (Array.isArray(parsed.skills)) parsedSkills = parsed.skills;
-          if (Array.isArray(parsed.experiences)) experiences = parsed.experiences;
-          if (Array.isArray(parsed.projects)) projects = parsed.projects;
-        }
-      } catch (e) {}
-    }
 
     try {
       const res = await fetch(`/api/resumes/${rId}`);
       const data = await res.json();
       if (data.resume) {
-        const pInfo = data.resume.sections?.find((s: any) => s.sectionType === 'personal_info');
-        const skSec = data.resume.sections?.find((s: any) => s.sectionType === 'skills');
-        const expSec = data.resume.sections?.find((s: any) => s.sectionType === 'experience');
-        const projSec = data.resume.sections?.find((s: any) => s.sectionType === 'projects');
+        const pInfo = data.resume.sections?.find((s: ResumeSectionRow) => s.sectionType === 'personal_info');
+        const skSec = data.resume.sections?.find((s: ResumeSectionRow) => s.sectionType === 'skills');
+        const expSec = data.resume.sections?.find((s: ResumeSectionRow) => s.sectionType === 'experience');
+        const projSec = data.resume.sections?.find((s: ResumeSectionRow) => s.sectionType === 'projects');
 
         if (pInfo) {
           try {
@@ -156,7 +120,7 @@ export default function SkillGraphPage() {
           try {
             const parsed = typeof skSec.content === 'string' ? JSON.parse(skSec.content) : skSec.content;
             if (Array.isArray(parsed)) parsedSkills = parsed;
-            else if (parsed.categories) parsedSkills = parsed.categories.flatMap((c: any) => c.items || []);
+            else if (parsed.categories) parsedSkills = parsed.categories.flatMap((c: { items?: string[] }) => c.items || []);
           } catch {}
         }
 
@@ -226,10 +190,10 @@ export default function SkillGraphPage() {
 
     setSkills(nodes);
     setIsLoading(false);
-  };
+  }
 
   useEffect(() => {
-    if (activeResumeId) loadSkillGraph(activeResumeId);
+    if (activeResumeId) fetchSkillGraph(activeResumeId);
   }, [activeResumeId]);
 
   const handleAddNewSkill = () => {
@@ -282,7 +246,10 @@ export default function SkillGraphPage() {
             <div className="relative">
               <select
                 value={activeResumeId}
-                onChange={(e) => setActiveResumeId(e.target.value)}
+                onChange={(e) => {
+                  setIsLoading(true);
+                  setActiveResumeId(e.target.value);
+                }}
                 className="text-xs font-bold bg-white border border-slate-200 rounded-xl px-3 py-2 pr-8 text-slate-900 focus:outline-none focus:border-[#1C152E] cursor-pointer"
               >
                 {allResumes.map((r) => (
@@ -389,7 +356,7 @@ export default function SkillGraphPage() {
                   >
                     <span className="font-bold text-slate-900 text-[11px]">{ev.title}</span>
                     <span className="text-slate-600 text-[10.5px] font-medium leading-relaxed">
-                      "{ev.snippet}"
+                      &quot;{ev.snippet}&quot;
                     </span>
                   </div>
                 ))}

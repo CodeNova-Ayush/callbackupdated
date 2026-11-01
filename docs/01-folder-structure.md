@@ -7,7 +7,7 @@ CallBack.ai keeps the deployable Next.js application at the repository root whil
 - `app/`: Next.js App Router pages, layouts, and route handlers.
 - `components/`: reusable React UI, navigation, and resume template components.
 - `backend/`: business logic engines that can be reused outside route handlers.
-- `database/`: Prisma client singleton and database access boundary.
+- `lib/db.ts`: Prisma client singleton and database access boundary.
 - `lib/`: shared adapters, auth helpers, and service wrappers.
 - `prisma/`: schema and seed data.
 - `public/`: static assets and screenshots.

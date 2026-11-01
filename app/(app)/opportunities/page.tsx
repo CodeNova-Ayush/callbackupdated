@@ -26,6 +26,14 @@ import { Button } from '@/components/ui/Button';
 import { Card, Badge, ProgressRing } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Input';
+import type { MatchedKeywordItem, TailoringRecommendationItem } from '@/lib/services/jd-match-service';
+
+interface TailoredSnapshot {
+  fitScore: number;
+  tailoredSummary: string;
+  diffHighlights: string[];
+  matchedSkills: Array<string | MatchedKeywordItem>;
+}
 
 interface JobOpportunity {
   id: string;
@@ -87,32 +95,17 @@ export default function OpportunitiesPage() {
   const router = useRouter();
 
   // State
-  const [candidateName, setCandidateName] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const active = getActiveStoredResume();
-      if (active?.candidateName) return active.candidateName;
-      const stored = localStorage.getItem('active_candidate_name');
-      if (stored && stored !== 'Alex Rivera') return stored;
-    }
-    return 'Candidate Profile';
-  });
+  const [candidateName, setCandidateName] = useState('Candidate Profile');
   const [candidateTitle, setCandidateTitle] = useState('Senior Full-Stack & AI Systems Engineer');
   const [baseSummary, setBaseSummary] = useState('');
   const [allResumes, setAllResumes] = useState<{ id: string; title: string }[]>([]);
-  const [activeResumeId, setActiveResumeId] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const active = getActiveStoredResume();
-      if (active?.id) return active.id;
-      return localStorage.getItem('active_resume_id') || 'demo-resume-alex-1';
-    }
-    return 'demo-resume-alex-1';
-  });
+  const [activeResumeId, setActiveResumeId] = useState('');
 
   // Tailoring Modal State
   const [selectedPosting, setSelectedPosting] = useState<JobOpportunity | null>(null);
   const [isTailorModalOpen, setIsTailorModalOpen] = useState(false);
   const [isGeneratingTailor, setIsGeneratingTailor] = useState(false);
-  const [tailoredData, setTailoredData] = useState<any>(null);
+  const [tailoredData, setTailoredData] = useState<TailoredSnapshot | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
   // Custom Job Post Modal
@@ -124,63 +117,29 @@ export default function OpportunitiesPage() {
 
   // Load Resumes
   useEffect(() => {
-    const localResumes = getStoredResumes().map((r) => ({ id: r.id, title: r.title }));
-    const activeStored = getActiveStoredResume();
-
-    if (activeStored) {
-      setActiveResumeId(activeStored.id);
-      setCandidateName(activeStored.candidateName);
-      setCandidateTitle(activeStored.candidateTitle);
-      setBaseSummary(activeStored.parsedSections.personalInfo?.summary || `${activeStored.candidateName} is an experienced technology professional.`);
-    }
-
-    fetch('/api/resumes')
-      .then((res) => res.json())
-      .then((data) => {
-        const serverList = Array.isArray(data.resumes) ? data.resumes : [];
-        const map = new Map<string, any>();
-        for (const lr of localResumes) map.set(lr.id, lr);
-        for (const r of serverList) map.set(r.id, r);
-
-        const merged = Array.from(map.values());
-        if (merged.length > 0) {
-          setAllResumes(merged);
-          if (!activeStored) {
-            const stored = typeof window !== 'undefined' ? localStorage.getItem('active_resume_id') : null;
-            const target = stored && merged.some((r: any) => r.id === stored) ? stored : merged[0].id;
-            setActiveResumeId(target);
-          }
-        }
-      })
-      .catch(() => {
-        if (localResumes.length > 0) setAllResumes(localResumes);
-      });
+    const load = async () => {
+      const stored = await getStoredResumes();
+      const activeStored = await getActiveStoredResume();
+      setAllResumes(stored.map((item) => ({ id: item.id, title: item.title })));
+      const target = activeStored || stored[0];
+      if (!target) return;
+      setActiveResumeId(target.id);
+      setCandidateName(target.candidateName);
+      setCandidateTitle(target.candidateTitle);
+      setBaseSummary(target.parsedSections.personalInfo?.summary || `${target.candidateName} is an experienced technology professional.`);
+    };
+    load();
   }, []);
 
   // Load Active Resume Data
   useEffect(() => {
     if (!activeResumeId) return;
 
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('callback_ai_saved_resume_' + activeResumeId);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.personalInfo?.fullName) {
-            setCandidateName(parsed.personalInfo.fullName);
-            setCandidateTitle(parsed.personalInfo.title || 'Senior Software Engineer');
-            setBaseSummary(parsed.personalInfo.summary || `${parsed.personalInfo.fullName} is an experienced technology professional.`);
-            return;
-          }
-        }
-      } catch (e) {}
-    }
-
     fetch(`/api/resumes/${activeResumeId}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.resume) {
-          const pi = data.resume.sections?.find((s: any) => s.sectionType === 'personal_info');
+          const pi = data.resume.sections?.find((s: { sectionType: string; content: unknown }) => s.sectionType === 'personal_info');
           let name = 'Candidate';
           let title = 'Software Engineer';
           let summary = '';
@@ -226,7 +185,7 @@ export default function OpportunitiesPage() {
         setTailoredData({
           fitScore: data.match.matchPercentage || posting.fitScore,
           tailoredSummary: `${candidateName} is a high-conviction ${posting.title} specializing in ${posting.requiredSkills.slice(0, 3).join(', ')}. Demonstrated production track record accelerating engineering velocity and delivering robust scalable architectures.`,
-          diffHighlights: (data.match.tailoringRecommendations || []).map((t: any) => `${t.reason || 'Strategic Alignment'}: "${t.tailoredRewrite || ''}"`),
+          diffHighlights: (data.match.tailoringRecommendations || []).map((t: Partial<TailoringRecommendationItem>) => `${t.reason || 'Strategic Alignment'}: "${t.tailoredRewrite || ''}"`),
           matchedSkills: data.match.matchedKeywords || posting.requiredSkills,
         });
       }
@@ -259,7 +218,7 @@ export default function OpportunitiesPage() {
 
   const handleCopyTailoredDraft = () => {
     if (!tailoredData || !selectedPosting) return;
-    const text = `TAILORED APPLICATION SNAPSHOT — ${selectedPosting.company}\n\nPosition: ${selectedPosting.title}\nCandidate: ${candidateName}\n\nTAILORED PROFESSIONAL SUMMARY:\n${tailoredData.tailoredSummary}\n\nSTRATEGIC ATS BULLET REWRITES:\n${tailoredData.diffHighlights.map((h: string, idx: number) => `${idx + 1}. ${h}`).join('\n')}\n\nMATCHED KEYWORDS:\n${tailoredData.matchedSkills.join(', ')}`;
+    const text = `TAILORED APPLICATION SNAPSHOT — ${selectedPosting.company}\n\nPosition: ${selectedPosting.title}\nCandidate: ${candidateName}\n\nTAILORED PROFESSIONAL SUMMARY:\n${tailoredData.tailoredSummary}\n\nSTRATEGIC ATS BULLET REWRITES:\n${tailoredData.diffHighlights.map((h: string, idx: number) => `${idx + 1}. ${h}`).join('\n')}\n\nMATCHED KEYWORDS:\n${tailoredData.matchedSkills.map((k) => (typeof k === 'string' ? k : k.name)).join(', ')}`;
     navigator.clipboard.writeText(text);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);

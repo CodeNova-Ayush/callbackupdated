@@ -106,175 +106,95 @@ export const FLOWCV_DEFAULT_COVER_LETTER: Omit<CoverLetterItem, 'id' | 'createdA
   },
 };
 
-/**
- * Get all stored cover letters from localStorage
- */
-export function getStoredCoverLetters(): CoverLetterItem[] {
+export const read_legacy_cover_letters = (): CoverLetterItem[] => {
   if (typeof window === 'undefined') return [];
-
   try {
     const raw = localStorage.getItem(COVER_LETTER_STORAGE_KEYS.LIST);
-    if (raw) {
-      const list = JSON.parse(raw);
-      if (Array.isArray(list)) {
-        return list;
-      }
-    }
-  } catch (e) {
-    console.warn('[CoverLetterStore] Failed to read cover letters:', e);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
   }
+};
 
-  return [];
+export const clear_legacy_cover_letter_keys = () => {
+  if (typeof window === 'undefined') return;
+  const keys = [COVER_LETTER_STORAGE_KEYS.LIST, COVER_LETTER_STORAGE_KEYS.ACTIVE_ID];
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith('callback_cover_letter_')) keys.push(key);
+  }
+  keys.forEach((key) => localStorage.removeItem(key));
+};
+
+export async function getStoredCoverLetters(): Promise<CoverLetterItem[]> {
+  const response = await fetch('/api/cover-letters');
+  if (!response.ok) return [];
+  const data = await response.json();
+  return Array.isArray(data.letters) ? data.letters : [];
 }
 
-/**
- * Get single cover letter by ID
- */
-export function getCoverLetterById(id: string): CoverLetterItem | null {
-  if (typeof window === 'undefined' || !id) return null;
-
-  const all = getStoredCoverLetters();
-  const found = all.find((item) => item.id === id);
-  if (found) return found;
-
-  // If not found in list, check direct key
-  try {
-    const direct = localStorage.getItem(`callback_cover_letter_${id}`);
-    if (direct) {
-      return JSON.parse(direct);
-    }
-  } catch {}
-
-  // If requested default demo id
-  if (id === 'default-demo-letter') {
-    return {
-      ...FLOWCV_DEFAULT_COVER_LETTER,
-      id: 'default-demo-letter',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  return null;
+export async function getCoverLetterById(id: string): Promise<CoverLetterItem | null> {
+  if (!id) return null;
+  const response = await fetch(`/api/cover-letters/${id}`);
+  if (!response.ok) return null;
+  const data = await response.json();
+  return data.letter || null;
 }
 
-/**
- * Save or update cover letter in store
- */
-export function saveCoverLetterToStore(item: CoverLetterItem): void {
-  if (typeof window === 'undefined' || !item?.id) return;
-
-  try {
-    const now = new Date().toISOString();
-    const updatedItem: CoverLetterItem = {
-      ...item,
-      updatedAt: now,
-    };
-
-    // Save individual key
-    localStorage.setItem(`callback_cover_letter_${item.id}`, JSON.stringify(updatedItem));
-
-    // Update list key
-    const all = getStoredCoverLetters();
-    const idx = all.findIndex((l) => l.id === item.id);
-    if (idx >= 0) {
-      all[idx] = updatedItem;
-    } else {
-      all.unshift(updatedItem);
-    }
-
-    localStorage.setItem(COVER_LETTER_STORAGE_KEYS.LIST, JSON.stringify(all));
-    localStorage.setItem(COVER_LETTER_STORAGE_KEYS.ACTIVE_ID, item.id);
-
-    // Notify listeners
-    window.dispatchEvent(new CustomEvent('cover_letter_saved', { detail: updatedItem }));
-  } catch (e) {
-    console.error('[CoverLetterStore] Failed to save cover letter:', e);
+export async function saveCoverLetterToStore(item: CoverLetterItem): Promise<void> {
+  const response = await fetch(`/api/cover-letters/${item.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item),
+  });
+  if (response.status === 404) {
+    const created = await fetch('/api/cover-letters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
+    });
+    if (!created.ok) throw new Error('Failed to save cover letter');
+  } else if (!response.ok) {
+    throw new Error('Failed to save cover letter');
   }
-}
-
-/**
- * Create a new cover letter
- */
-export function createNewCoverLetter(templateId: string = 'classic_left', customTitle?: string): CoverLetterItem {
-  const id = `cl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const now = new Date().toISOString();
-
-  // Pre-fill sender from active stored resume if available
-  let senderOverrides: Partial<CoverLetterSender> = {};
   if (typeof window !== 'undefined') {
-    try {
-      const activeName = localStorage.getItem('active_candidate_name');
-      const activeEmail = localStorage.getItem('active_candidate_email');
-      const activeTitle = localStorage.getItem('active_candidate_title');
-      if (activeName && activeName !== 'Candidate Profile') {
-        senderOverrides.fullName = activeName;
-      }
-      if (activeEmail && !activeEmail.includes('candidate@callback')) {
-        senderOverrides.email = activeEmail;
-      }
-      if (activeTitle) {
-        senderOverrides.jobTitle = activeTitle;
-      }
-    } catch {}
+    window.dispatchEvent(new CustomEvent('cover_letter_saved', { detail: item }));
   }
-
-  const newItem: CoverLetterItem = {
-    ...FLOWCV_DEFAULT_COVER_LETTER,
-    id,
-    title: customTitle || 'New Cover Letter',
-    templateId,
-    sender: {
-      ...FLOWCV_DEFAULT_COVER_LETTER.sender,
-      ...senderOverrides,
-    },
-    letterDetails: {
-      ...FLOWCV_DEFAULT_COVER_LETTER.letterDetails,
-      signatureText: senderOverrides.fullName || FLOWCV_DEFAULT_COVER_LETTER.sender.fullName,
-      date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
-    },
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  saveCoverLetterToStore(newItem);
-  return newItem;
 }
 
-/**
- * Delete a cover letter
- */
-export function deleteCoverLetter(id: string): void {
-  if (typeof window === 'undefined' || !id) return;
+export async function createNewCoverLetter(templateId: string = 'classic_left', customTitle?: string): Promise<CoverLetterItem> {
+  const response = await fetch('/api/cover-letters', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...FLOWCV_DEFAULT_COVER_LETTER,
+      title: customTitle || 'New Cover Letter',
+      templateId,
+    }),
+  });
+  if (!response.ok) throw new Error('Failed to create cover letter');
+  const data = await response.json();
+  return data.letter;
+}
 
-  try {
-    localStorage.removeItem(`callback_cover_letter_${id}`);
-    const all = getStoredCoverLetters().filter((item) => item.id !== id);
-    localStorage.setItem(COVER_LETTER_STORAGE_KEYS.LIST, JSON.stringify(all));
+export async function deleteCoverLetter(id: string): Promise<void> {
+  await fetch(`/api/cover-letters/${id}`, { method: 'DELETE' });
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('cover_letter_deleted', { detail: { id } }));
-  } catch (e) {
-    console.error('[CoverLetterStore] Failed to delete cover letter:', e);
   }
 }
 
-/**
- * Duplicate a cover letter
- */
-export function duplicateCoverLetter(id: string): CoverLetterItem | null {
-  const original = getCoverLetterById(id);
+export async function duplicateCoverLetter(id: string): Promise<CoverLetterItem | null> {
+  const original = await getCoverLetterById(id);
   if (!original) return null;
-
-  const newId = `cl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const now = new Date().toISOString();
-
-  const duplicated: CoverLetterItem = {
-    ...original,
-    id: newId,
-    title: `${original.title} (Copy)`,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  saveCoverLetterToStore(duplicated);
-  return duplicated;
+  const response = await fetch('/api/cover-letters', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...original, title: `${original.title} (Copy)` }),
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  return data.letter;
 }
+

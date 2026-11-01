@@ -41,32 +41,19 @@ import { AgentLoadingState } from '@/components/agent/AgentLoadingState';
 
 import { getStoredResumes, getActiveStoredResume } from '@/lib/client-resume-store';
 
+type CandidatePersonalInfo = { fullName?: string; title?: string; summary?: string };
+type CandidateExperienceEntry = { role?: string; company?: string };
+
+// Message ids are generated in event handlers only; kept outside the component body.
+const makeMessageId = (prefix: string) => `${prefix}-${Date.now()}`;
+
 export default function AgentPage() {
   const router = useRouter();
   const routeParams = useParams();
-  const activeResumeId = (routeParams?.resumeId as string) || 'demo-resume-alex-1';
+  const activeResumeId = (routeParams?.resumeId as string) || '';
 
-  // Candidate Data State
-  const [candidateName, setCandidateName] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const active = getActiveStoredResume();
-      if (active?.candidateName && active.candidateName !== 'Alex Rivera' && active.candidateName !== 'Candidate') {
-        return active.candidateName;
-      }
-      const stored = localStorage.getItem('active_candidate_name');
-      if (stored && stored !== 'Alex Rivera' && stored !== 'Candidate') return stored;
-    }
-    return 'Candidate';
-  });
-  const [candidateTitle, setCandidateTitle] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const active = getActiveStoredResume();
-      if (active?.candidateTitle) return active.candidateTitle;
-      const stored = localStorage.getItem('active_candidate_title');
-      if (stored) return stored;
-    }
-    return 'Senior Software Engineer & AI Builder';
-  });
+  const [candidateName, setCandidateName] = useState('Candidate');
+  const [candidateTitle, setCandidateTitle] = useState('Senior Software Engineer & AI Builder');
   const [candidateSummary, setCandidateSummary] = useState('');
   const [candidateSkills, setCandidateSkills] = useState<string[]>([]);
   const [allResumes, setAllResumes] = useState<{ id: string; title: string }[]>([]);
@@ -99,7 +86,8 @@ export default function AgentPage() {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  const applyCandidateState = (pi: any, expList: any[], skList: any[], defaultTitle?: string, resumeTitle?: string) => {
+  const applyCandidateState = (piInput: unknown, expList: unknown[], skList: unknown[], defaultTitle?: string, resumeTitle?: string) => {
+    const pi = (piInput && typeof piInput === 'object' ? piInput : undefined) as CandidatePersonalInfo | undefined;
     let name = pi?.fullName;
     if (!name || name === 'Candidate' || name === 'Alex Rivera') {
       if (resumeTitle && resumeTitle.includes('—')) {
@@ -121,15 +109,15 @@ export default function AgentPage() {
       }
     }
     if ((!title || title === 'Software Engineer & AI Builder') && expList && expList.length > 0) {
-      const topExp = expList[0];
+      const topExp = expList[0] as CandidateExperienceEntry | null | undefined;
       if (topExp?.role) {
         title = `${topExp.role}${topExp.company ? ` (${topExp.company})` : ''}`;
       }
     }
     if (!title) title = defaultTitle || 'Senior Software Engineer & AI Builder';
 
-    let summary = pi?.summary || '';
-    let skillsList: string[] = Array.isArray(skList) ? skList : [];
+    const summary = pi?.summary || '';
+    const skillsList: string[] = Array.isArray(skList) ? (skList as string[]) : [];
 
     setCandidateName(name);
     setCandidateTitle(title);
@@ -154,149 +142,46 @@ export default function AgentPage() {
 
   // Load Resumes List for Quick Switcher
   useEffect(() => {
-    const localResumes = getStoredResumes().map((r) => ({ id: r.id, title: r.title }));
-    const activeStored = getActiveStoredResume();
-
-    if (activeStored && activeStored.id === activeResumeId) {
-      applyCandidateState(
-        activeStored.parsedSections.personalInfo,
-        activeStored.parsedSections.experience,
-        activeStored.parsedSections.skills,
-        activeStored.candidateTitle,
-        activeStored.title
-      );
-    }
-
-    if (localResumes.length > 0) {
-      setAllResumes(localResumes);
-    }
-
-    fetch('/api/resumes')
-      .then((res) => res.json())
-      .then((data) => {
-        const serverList = Array.isArray(data.resumes) ? data.resumes : [];
-        const map = new Map<string, any>();
-        for (const lr of localResumes) map.set(lr.id, lr);
-        for (const r of serverList) {
-          if (localResumes.length > 0 && r.id === 'demo-resume-alex-1') continue;
-          if (!map.has(r.id)) map.set(r.id, r);
-        }
-
-        const merged = Array.from(map.values());
-        if (merged.length > 0) {
-          setAllResumes(merged);
-        }
-      })
-      .catch(() => {
-        if (localResumes.length > 0) setAllResumes(localResumes);
-      });
+    const load = async () => {
+      const stored = await getStoredResumes();
+      const activeStored = await getActiveStoredResume();
+      setAllResumes(stored.map((item) => ({ id: item.id, title: item.title })));
+      if (activeStored && activeStored.id === activeResumeId) {
+        applyCandidateState(
+          activeStored.parsedSections.personalInfo,
+          activeStored.parsedSections.experience,
+          activeStored.parsedSections.skills,
+          activeStored.candidateTitle,
+          activeStored.title
+        );
+      }
+    };
+    load();
   }, [activeResumeId]);
 
   // Load Active Resume Profile & Initialize Agent
   useEffect(() => {
-    let loadedFromLocal = false;
-
-    if (typeof window !== 'undefined') {
-      const allStored = getStoredResumes();
-      const activeStored = getActiveStoredResume();
-
-      // If on demo resume or unlisted resume, but user has uploaded resumes, redirect to user's real resume
-      if ((activeResumeId === 'demo-resume-alex-1' || !allStored.some((r) => r.id === activeResumeId)) && allStored.length > 0) {
-        const target = activeStored || allStored[0];
-        router.replace(`/agent/${target.id}`);
-        applyCandidateState(
-          target.parsedSections.personalInfo,
-          target.parsedSections.experience,
-          target.parsedSections.skills,
-          target.candidateTitle,
-          target.title
-        );
+    const load = async () => {
+      if (!activeResumeId || activeResumeId === 'demo-resume-alex-1') {
+        const stored = await getStoredResumes();
+        const activeStored = await getActiveStoredResume();
+        const target = activeStored || stored[0];
+        if (target) router.replace(`/agent/${target.id}`);
         return;
       }
-
-      // Check if current activeResumeId is in local stored resumes
-      const matchingStored = allStored.find((r) => r.id === activeResumeId);
-      if (matchingStored) {
-        applyCandidateState(
-          matchingStored.parsedSections.personalInfo,
-          matchingStored.parsedSections.experience,
-          matchingStored.parsedSections.skills,
-          matchingStored.candidateTitle,
-          matchingStored.title
-        );
-        loadedFromLocal = true;
-      } else {
-        // Check single saved resume
-        try {
-          const saved = localStorage.getItem('callback_ai_saved_resume_' + activeResumeId);
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.personalInfo?.fullName) {
-              applyCandidateState(
-                parsed.personalInfo,
-                parsed.experiences || parsed.experience,
-                parsed.skills,
-                parsed.personalInfo.title,
-                localStorage.getItem('active_resume_title') || undefined
-              );
-              loadedFromLocal = true;
-            }
-          }
-        } catch (e) {}
-      }
-
-      if (activeResumeId !== 'demo-resume-alex-1') {
-        localStorage.setItem('active_resume_id', activeResumeId);
-      }
-    }
-
-    // Fetch from server API
-    if (activeResumeId !== 'demo-resume-alex-1') {
-      fetch(`/api/resumes/${activeResumeId}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.resume) {
-            const pi = data.resume.sections?.find((s: any) => s.sectionType === 'personal_info');
-            const exp = data.resume.sections?.find((s: any) => s.sectionType === 'experience');
-            const sk = data.resume.sections?.find((s: any) => s.sectionType === 'skills');
-
-            let parsedPi: any = null;
-            let parsedExp: any[] = [];
-            let parsedSk: any[] = [];
-
-            if (pi) {
-              try {
-                parsedPi = typeof pi.content === 'string' ? JSON.parse(pi.content) : pi.content;
-              } catch {}
-            }
-            if (exp) {
-              try {
-                const e = typeof exp.content === 'string' ? JSON.parse(exp.content) : exp.content;
-                parsedExp = Array.isArray(e) ? e : [e];
-              } catch {}
-            }
-            if (sk) {
-              try {
-                const s = typeof sk.content === 'string' ? JSON.parse(sk.content) : sk.content;
-                if (Array.isArray(s)) parsedSk = s;
-                else if (s?.categories) parsedSk = s.categories.flatMap((c: any) => c.items || []);
-              } catch {}
-            }
-
-            if (parsedPi?.fullName) {
-              applyCandidateState(
-                parsedPi,
-                parsedExp,
-                parsedSk,
-                data.resume.title?.split('—')?.[1]?.trim(),
-                data.resume.title
-              );
-            }
-          }
-        })
-        .catch(() => {});
-    }
-  }, [activeResumeId, router]);
+      const response = await fetch(`/api/resumes/${activeResumeId}`);
+      const data = await response.json();
+      if (!data.resume) return;
+      const pi = data.resume.sections?.find((section: { sectionType: string }) => section.sectionType === 'personal_info');
+      const exp = data.resume.sections?.find((section: { sectionType: string }) => section.sectionType === 'experience');
+      const sk = data.resume.sections?.find((section: { sectionType: string }) => section.sectionType === 'skills');
+      const parsedPi = pi ? JSON.parse(typeof pi.content === 'string' ? pi.content : JSON.stringify(pi.content)) : {};
+      const parsedExp = exp ? JSON.parse(typeof exp.content === 'string' ? exp.content : JSON.stringify(exp.content)) : [];
+      const parsedSk = sk ? JSON.parse(typeof sk.content === 'string' ? sk.content : JSON.stringify(sk.content)) : [];
+      applyCandidateState(parsedPi, Array.isArray(parsedExp) ? parsedExp : [], Array.isArray(parsedSk) ? parsedSk : [], undefined, data.resume.title);
+    };
+    load().catch(() => undefined);
+  }, [activeResumeId]);
 
   // Suggested Prompts Grouped by Domain
   const promptCategories = [
@@ -329,7 +214,7 @@ export default function AgentPage() {
     if (!q.trim() || isLoading) return;
 
     const userMsg: ChatMessage = {
-      id: `u-${Date.now()}`,
+      id: makeMessageId('u'),
       role: 'user',
       content: q,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -340,29 +225,10 @@ export default function AgentPage() {
     setIsLoading(true);
 
     try {
-      let clientFullContext: any = null;
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('callback_ai_saved_resume_' + activeResumeId) || localStorage.getItem('active_resume_data');
-        if (saved) {
-          try {
-            clientFullContext = JSON.parse(saved);
-          } catch {}
-        }
-      }
-
       const res = await fetch(`/api/agent/${activeResumeId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: q,
-          candidateContext: {
-            personalInfo: clientFullContext?.personalInfo || { fullName: candidateName, title: candidateTitle, summary: candidateSummary },
-            experiences: clientFullContext?.experiences || clientFullContext?.experience || [],
-            projects: clientFullContext?.projects || [],
-            education: clientFullContext?.education || [],
-            skills: clientFullContext?.skills || candidateSkills,
-          },
-        }),
+        body: JSON.stringify({ question: q }),
       });
       const data = await res.json();
       const answerObj = data.answer || {
@@ -371,7 +237,7 @@ export default function AgentPage() {
       };
 
       const botMsg: ChatMessage = {
-        id: `b-${Date.now()}`,
+        id: makeMessageId('b'),
         role: 'assistant',
         content: answerObj.reply,
         citedSources: answerObj.citedSources,
@@ -381,7 +247,7 @@ export default function AgentPage() {
     } catch (err) {
       console.error('Agent chat error:', err);
       const fallbackMsg: ChatMessage = {
-        id: `b-${Date.now()}`,
+        id: makeMessageId('b'),
         role: 'assistant',
         content: `I am ${candidateName}'s Living Candidate Agent. ${candidateName} is verified in distributed systems, full-stack web architectures, and modern AI pipelines.`,
         citedSources: [{ sectionTitle: 'Experience Summary', snippet: candidateTitle }],
@@ -452,25 +318,6 @@ export default function AgentPage() {
         setRawResumeText('');
         setCustomCandidateName('');
         setSelectedLocalFile(null);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('active_resume_id', data.resumeId);
-          localStorage.setItem('active_resume_title', data.title);
-          if (data.parsedSections) {
-            localStorage.setItem('callback_ai_saved_resume_' + data.resumeId, JSON.stringify({
-              personalInfo: data.parsedSections.personalInfo,
-              experiences: data.parsedSections.experience,
-              education: data.parsedSections.education,
-              projects: data.parsedSections.projects,
-              skills: data.parsedSections.skills,
-              certifications: data.parsedSections.certifications,
-            }));
-            localStorage.setItem('active_resume_data', JSON.stringify(data.parsedSections));
-            if (data.parsedSections.personalInfo?.fullName) {
-              localStorage.setItem('active_candidate_name', data.parsedSections.personalInfo.fullName);
-            }
-          }
-          window.dispatchEvent(new Event('active_resume_changed'));
-        }
         router.push(`/agent/${data.resumeId}`);
       } else {
         alert(data.error || 'Failed to parse resume file.');
@@ -527,24 +374,7 @@ export default function AgentPage() {
                   <select
                     value={activeResumeId}
                     onChange={(e) => {
-                      const selectedId = e.target.value;
-                      if (typeof window !== 'undefined') {
-                        const allStored = getStoredResumes();
-                        const matched = allStored.find((r) => r.id === selectedId);
-                        if (matched) {
-                          applyCandidateState(
-                            matched.parsedSections.personalInfo,
-                            matched.parsedSections.experience,
-                            matched.parsedSections.skills,
-                            matched.candidateTitle,
-                            matched.title
-                          );
-                        }
-                        localStorage.setItem('active_resume_id', selectedId);
-                        window.dispatchEvent(new Event('active_resume_changed'));
-                        window.dispatchEvent(new Event('storage'));
-                      }
-                      router.push(`/agent/${selectedId}`);
+                      router.push(`/agent/${e.target.value}`);
                     }}
                     className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-[#1C152E] cursor-pointer appearance-none pr-8"
                   >
@@ -640,7 +470,7 @@ export default function AgentPage() {
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-black text-slate-900">
-                    {candidateName}'s Agent
+                    {candidateName}&apos;s Agent
                   </h2>
                   <span className="text-[9px] font-black uppercase text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Grounded Agent

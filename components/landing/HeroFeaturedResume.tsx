@@ -176,7 +176,7 @@ export function HeroFeaturedResume() {
                 <span className="text-[12.5px] font-medium text-slate-500 shrink-0">2012 – 2016 • Milwaukee, WI</span>
               </div>
               <p className="text-[12.5px] text-slate-600 mt-0.5">
-                Magna Cum Laude • Dean's Honor Roll (All Semesters) • President of Student Marketing Association
+                Magna Cum Laude • Dean&apos;s Honor Roll (All Semesters) • President of Student Marketing Association
               </p>
             </div>
 

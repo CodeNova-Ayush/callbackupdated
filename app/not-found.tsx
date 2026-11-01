@@ -47,7 +47,7 @@ export default function NotFound() {
             Page Not Found
           </h1>
           <p className="text-sm sm:text-base text-slate-600 max-w-md mx-auto leading-relaxed">
-            The candidate agent link or page route you are looking for doesn't exist, may have moved, or had an incomplete URL address.
+            The candidate agent link or page route you are looking for doesn&apos;t exist, may have moved, or had an incomplete URL address.
           </p>
         </div>
 
